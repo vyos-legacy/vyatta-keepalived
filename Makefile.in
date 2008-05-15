@@ -11,6 +11,7 @@ TARFILES = AUTHOR bin ChangeLog configure configure.in CONTRIBUTORS COPYING \
 TARBALL = keepalived-@VERSION@.tar.gz
 
 all:
+	mkdir -p bin
 	$(MAKE) -C lib || exit 1;
 	$(MAKE) -C keepalived
 	$(MAKE) -C genhash
