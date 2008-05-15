@@ -760,8 +760,14 @@ vrrp_restore_interface(vrrp_rt * vrrp, int advF)
 	 *
 	 * If started with "--dont-release-vrrp" (debug & 8) then try to remove
 	 * addresses even if we didn't add them during this run.
+	 *
+	 * If "--vyatta-workaround" (debug & 64) is set then try to release
+	 * address.  Vyatta uses kill -1 to signal keepalived to reread its
+	 * config.  If a config change (such as lower priority) causes a
+	 * state transition to backup then keepalived doesn't remove the 
+	 * VIPs.  Then we have duplicate IP addresses on both master/backup.
 	 */
-	if (debug & 8 || VRRP_VIP_ISSET(vrrp)) {
+	if (debug & 8 || debug & 64 || VRRP_VIP_ISSET(vrrp)) {
 		if (!LIST_ISEMPTY(vrrp->vip))
 			vrrp_handle_ipaddress(vrrp, IPADDRESS_DEL,
 					      VRRP_VIP_TYPE);

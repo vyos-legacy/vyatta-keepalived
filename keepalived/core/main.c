@@ -154,13 +154,14 @@ usage(const char *prog)
 		"  %s --log-console        -l    Log message to local console.\n"
 		"  %s --log-detail         -D    Detailed log messages.\n"
 		"  %s --log-facility       -S    0-7 Set syslog facility to LOG_LOCAL[0-7]. (default=LOG_DAEMON)\n"
+		"  %s --vyatta-workaround  -X    Drop VIP on transition from signal.\n"
 		"  %s --help               -h    Display this short inlined help screen.\n"
 		"  %s --version            -v    Display the version number\n"
 		"  %s --pid                -p    pidfile\n"
 		"  %s --checkers_pid       -c    checkers pidfile\n"
 		"  %s --vrrp_pid           -r    vrrp pidfile\n",
 		prog, prog, prog, prog, prog, prog, prog, prog,
-		prog, prog, prog, prog, prog, prog, prog);
+		prog, prog, prog, prog, prog, prog, prog, prog);
 }
 
 /* Command line parser */
@@ -187,6 +188,7 @@ parse_cmdline(int argc, char **argv)
 		{"pid", 'p', POPT_ARG_STRING, &option_arg, 'p'},
 		{"checkers_pid", 'c', POPT_ARG_STRING, &option_arg, 'c'},
 		{"vrrp_pid", 'r', POPT_ARG_STRING, &option_arg, 'r'},
+		{"vyatta-workaround", 'X', POPT_ARG_NONE, NULL, 'X'},
 		{NULL, 0, 0, NULL, 0}
 	};
 
@@ -224,6 +226,9 @@ parse_cmdline(int argc, char **argv)
 	case 'D':
 		debug |= 32;
 		break;
+	case 'X':
+	        debug |= 64;
+                break;
 	case 'S':
 		log_facility = LOG_FACILITY[atoi(option_arg)].facility;
 		break;
@@ -268,6 +273,9 @@ parse_cmdline(int argc, char **argv)
 			break;
 		case 'D':
 			debug |= 32;
+			break;
+		case 'X':
+		        debug |= 64;
 			break;
 		case 'S':
 			log_facility = LOG_FACILITY[atoi(option_arg)].facility;
