@@ -1,0 +1,23 @@
+--- configure.in.orig	2007-07-24 22:29:10.000000000 +0200
++++ configure.in	2007-07-24 22:32:02.000000000 +0200
+@@ -54,13 +54,19 @@
+     #include <stdlib.h>
+     #include <stdio.h>
+     #include <linux/version.h>
+-    #if !defined(UTS_RELEASE)
++    #if !defined(UTS_RELEASE) && !defined(LINUX_VERSION_CODE)
+     #include <linux/utsrelease.h>
+     #endif
+     int main (void) {
+       FILE *fp = fopen ("linuxinfo", "w");
+       if (!fp) return 1;
++    #if defined(UTS_RELEASE)
+       fprintf (fp, "%s\n", UTS_RELEASE);
++    #elif defined(LINUX_VERSION_CODE)
++      fprintf (fp, "%d.%d.%d\n", LINUX_VERSION_CODE >> 16, (LINUX_VERSION_CODE >> 8) & 0xFF, LINUX_VERSION_CODE & 0xFF);
++    #else
++      fprintf (fp, "0.0.0\n"); /* Let's fail gently */
++    #endif
+       fclose (fp); 
+       return 0;
+     } 

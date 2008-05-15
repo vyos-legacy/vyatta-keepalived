@@ -1,0 +1,2 @@
+vyatta-keepalived: file-in-unusual-dir
+vyatta-keepalived: dir-or-file-in-opt

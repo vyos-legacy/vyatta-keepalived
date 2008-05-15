@@ -1,0 +1,29 @@
+#!/usr/bin/make -f
+
+include /usr/share/cdbs/1/rules/debhelper.mk
+include /usr/share/cdbs/1/rules/simple-patchsys.mk
+include /usr/share/cdbs/1/class/autotools.mk
+
+DEB_CONFIGURE_EXTRA_FLAGS := --with-kernel-dir=$(CURDIR)/debian
+DEB_AUTO_UPDATE_AUTOCONF = 1 
+
+CONFFLAGS= --prefix=/usr 
+
+configure: configure-stamp
+configure-stamp:
+	dh_testdir
+# Standard package support
+	./configure $(CONFFLAGS) 
+	touch $@
+
+binary-install/keepalived::
+	rm -rf $(DEB_DESTDIR)/etc/keepalived/samples
+	rm -rf $(DEB_DESTDIR)/etc/keepalived/keepalived.conf
+	rm -rf $(DEB_DESTDIR)/etc/init.d/keepalived.init
+	rm -rf $(DEB_DESTDIR)/etc/rc.d
+	rm -rf $(DEB_DESTDIR)/etc/sysconfig
+	rm -rf $(DEB_DESTDIR)/usr/man
+
+clean::
+	-rm config.status
+	-rm config.log
