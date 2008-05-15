@@ -22,6 +22,9 @@
  * Copyright (C) 2001-2007 Alexandre Cassen, <acassen@freebox.fr>
  */
 
+/* Work around incompatibility between linux/types.h and sys/types.h */
+#define __KERNEL_STRICT_NAMES
+
 /* local includes */
 #include "vrrp_arp.h"
 #include "memory.h"
