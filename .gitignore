@@ -12,6 +12,5 @@
 /debian/files
 /debian/vyatta-keepalived*
 /INSTALL
-/Makefile.in
 /Makefile
 
