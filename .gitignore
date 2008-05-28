@@ -23,3 +23,5 @@ Makefile
 /lib/*.o
 /genhash/*.o
 /bin/*
+/ID
+/TAGS
