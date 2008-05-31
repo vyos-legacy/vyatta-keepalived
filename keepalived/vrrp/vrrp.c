@@ -773,8 +773,11 @@ vrrp_restore_interface(vrrp_rt * vrrp, int advF)
 
 
 	/* if we stop vrrp, warn the other routers to speed up the recovery */
-	if (advF)
+	if (advF) {
+	        syslog(LOG_INFO, "VRRP_Instance(%s) sending 0 priority",
+		       vrrp->iname);
 		vrrp_send_adv(vrrp, VRRP_PRIO_STOP);
+	}
 }
 
 void
@@ -1243,7 +1246,7 @@ clear_diff_vrrp(void)
 		 * reloaded.
 		 */
 		if (!vrrp_exist(vrrp)) {
-			vrrp_restore_interface(vrrp, 0);
+			vrrp_restore_interface(vrrp, 1);
 		} else {
 			/*
 			 * If this vrrp instance exist in new
