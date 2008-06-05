@@ -606,7 +606,7 @@ vrrp_leave_fault(vrrp_rt * vrrp, char *buffer, int len)
 	if (!VRRP_ISUP(vrrp))
 		return;
 
-	if (vrrp_state_fault_rx(vrrp, buffer, len)) {
+	if (vrrp_state_fault_rx(vrrp, buffer, len) && vrrp->nopreempt == 0) {
 		if (vrrp->sync) {
 			if (vrrp_sync_leave_fault(vrrp)) {
 				syslog(LOG_INFO,
