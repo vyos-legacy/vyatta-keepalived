@@ -1,3 +1,33 @@
+vyatta-keepalived (1.1.15-1-vyatta-2) unstable; urgency=low
+
+	  3.1.0
+  [ Mark O'Brien ]
+
+
+  [ Stig Thormodsrud ]
+  * Fix 3214: Preemption occurred while "preempt false" on both sides
+    and
+  * Force vrrpd to send a 0 priority advert when forcing a transition
+    from
+  * Add makefile rule for TAGS ID.
+  * Fix 3198: "vrrp-group 255" is configurable, but crashes keepalived
+  * Fix 3144: VRRP backup obtains VIP resulting in a duplicate IP
+    situation.
+
+  [ rbalocca ]
+  * Remove patches that are already applied
+  * Fix lintian problem
+  * Check in debian patches
+  * Fix build
+
+  [ Stig Thormodsrud ]
+  * missing files
+  * missing Makefile.in
+
+  [ Mark O'Brien ]
+
+ -- Mark O'Brien <mobrien@firebolt.vyatta.com>  Tue, 17 Jun 2008 09:26:58 -0700
+
 vyatta-keepalived (1.1.15-1-vyatta-1) unstable; urgency=low
 
   * Import Debian keepalived 1.1.15-1
