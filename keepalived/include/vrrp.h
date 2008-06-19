@@ -116,6 +116,7 @@ typedef struct _vrrp_rt {
 				 * prio is allowed.  0 means no delay.
 				 */
 	TIMEVAL preempt_time;   /* Time after which preemption can happen */
+        int preempt_delay_active;
 	int state;		/* internal state (init/backup/master) */
 	int init_state;		/* the initial state of the instance */
 	int wantstate;		/* user explicitly wants a state (back/mast) */
