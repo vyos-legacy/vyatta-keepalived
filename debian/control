@@ -13,6 +13,7 @@ Standards-Version: 3.7.3
 Package: vyatta-keepalived
 Section: admin
 Architecture: any
+Replaces: keepalived
 Depends: ${shlibs:Depends}, 
  ipvsadm, 
  iproute
