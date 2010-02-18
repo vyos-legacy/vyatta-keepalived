@@ -1,3 +1,9 @@
+vyatta-keepalived (1.1.15-1-vyatta-6) unstable; urgency=low
+
+  * UNRELEASED
+
+ -- An-Cheng Huang <ancheng@vyatta.com>  Wed, 17 Feb 2010 16:14:38 -0800
+
 vyatta-keepalived (1.1.15-1-vyatta-5) unstable; urgency=low
 
   * UNRELEASED
