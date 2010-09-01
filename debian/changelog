@@ -1,3 +1,9 @@
+vyatta-keepalived (1.1.15-1-vyatta-8) unstable; urgency=low
+
+  * fix squeeze build and clean up
+
+ -- An-Cheng Huang <ancheng@vyatta.com>  Wed, 01 Sep 2010 15:35:46 -0700
+
 vyatta-keepalived (1.1.15-1-vyatta-7) unstable; urgency=low
 
   * UNRELEASED
