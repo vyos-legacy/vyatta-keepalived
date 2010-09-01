@@ -2,10 +2,9 @@ Source: vyatta-keepalived
 Section: admin
 Priority: optional
 Maintainer: Vyatta Package Maintainers <maintainers@vyatta.com>
-Build-Depends: debhelper (>> 4.1.0), 
+Build-Depends: debhelper (>= 5),
  libssl-dev, 
  libpopt-dev, 
- textutils, 
  cdbs, 
  autoconf
 Standards-Version: 3.7.3

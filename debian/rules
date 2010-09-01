@@ -4,7 +4,6 @@ DEB_DH_GENCONTROL_ARGS_ALL = $(shell if [ -f "../.VYATTA_DEV_BUILD" ]; then \
                                        echo "-- -v999.dev"; fi)
 
 include /usr/share/cdbs/1/rules/debhelper.mk
-include /usr/share/cdbs/1/rules/simple-patchsys.mk
 include /usr/share/cdbs/1/class/autotools.mk
 
 DEB_CONFIGURE_EXTRA_FLAGS := --with-kernel-dir=$(CURDIR)/debian

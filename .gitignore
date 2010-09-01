@@ -9,6 +9,7 @@ Makefile
 /config.guess
 /config.status
 /config.sub
+/configure
 /debian/files
 /debian/vyatta-keepalived*
 /debian/patches*
