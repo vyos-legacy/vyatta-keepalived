@@ -1,3 +1,9 @@
+vyatta-keepalived (1.1.15-1-vyatta-9+mendocino1) unstable; urgency=low
+
+  * new branch
+
+ -- An-Cheng Huang <ancheng@vyatta.com>  Tue, 28 Dec 2010 20:37:50 +0000
+
 vyatta-keepalived (1.1.15-1-vyatta-9) unstable; urgency=low
 
   * UNRELEASED
