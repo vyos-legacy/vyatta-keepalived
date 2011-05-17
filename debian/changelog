@@ -1,3 +1,9 @@
+vyatta-keepalived (1.1.15-1-vyatta-11) unstable; urgency=low
+
+  * Partial fix for 6393: keepalived shutdown too late.
+
+ -- Stig Thormodsrud <dev@vyatta.com>  Mon, 16 May 2011 23:57:16 -0700
+
 vyatta-keepalived (1.1.15-1-vyatta-10) unstable; urgency=low
 
   * new branch
