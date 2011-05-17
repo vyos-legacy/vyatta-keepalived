@@ -15,7 +15,7 @@
 ### END INIT INFO
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 DAEMON=/usr/sbin/keepalived
-NAME=keepalived
+NAME=keepalived_vrrp
 DESC=keepalived
 CONFIG=/etc/keepalived/keepalived.conf
 TMPFILES="/tmp/.vrrp /tmp/.healthcheckers"
