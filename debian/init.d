@@ -8,10 +8,10 @@
 # Provides:          keepalived
 # Required-Start:    $syslog $network
 # Required-Stop:     $syslog $network
-# Default-Start:     2 3 4 5
+# Default-Start:     
 # Default-Stop:      0 1 6
-# Short-Description: Starts keepalived
-# Description:       Starts keepalived lvs loadbalancer
+# Short-Description: Stops keepalived (start is done by vyatta cli)
+# Description:       Stops keepalived lvs loadbalancer
 ### END INIT INFO
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 DAEMON=/usr/sbin/keepalived
