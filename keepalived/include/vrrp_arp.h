@@ -5,8 +5,6 @@
  *
  * Part:        vrrp_arp.c include file.
  *
- * Version:     $Id: vrrp_arp.h,v 1.1.15 2007/09/15 04:07:41 acassen Exp $
- *
  * Author:      Alexandre Cassen, <acassen@linux-vs.org>
  *
  *              This program is distributed in the hope that it will be useful,
@@ -19,7 +17,7 @@
  *              as published by the Free Software Foundation; either version
  *              2 of the License, or (at your option) any later version.
  *
- * Copyright (C) 2001-2007 Alexandre Cassen, <acassen@freebox.fr>
+ * Copyright (C) 2001-2011 Alexandre Cassen, <acassen@linux-vs.org>
  */
 
 #ifndef _VRRP_ARP_H
@@ -59,6 +57,6 @@ extern int garp_fd;
 /* prototypes */
 extern void gratuitous_arp_init(void);
 extern void gratuitous_arp_close(void);
-extern int send_gratuitous_arp(ip_address * ipaddress);
+extern int send_gratuitous_arp(ip_address *);
 
 #endif

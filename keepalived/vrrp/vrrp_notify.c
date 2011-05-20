@@ -5,8 +5,6 @@
  *
  * Part:        VRRP state transition notification scripts handling.
  *
- * Version:     $Id: vrrp_notify.c,v 1.1.15 2007/09/15 04:07:41 acassen Exp $
- *
  * Author:      Alexandre Cassen, <acassen@linux-vs.org>
  *
  *              This program is distributed in the hope that it will be useful,
@@ -19,7 +17,7 @@
  *              as published by the Free Software Foundation; either version
  *              2 of the License, or (at your option) any later version.
  *
- * Copyright (C) 2001-2007 Alexandre Cassen, <acassen@freebox.fr>
+ * Copyright (C) 2001-2011 Alexandre Cassen, <acassen@linux-vs.org>
  */
 
 /* system include */
@@ -29,6 +27,7 @@
 #include "vrrp_notify.h"
 #include "memory.h"
 #include "notify.h"
+#include "logger.h"
 
 static char *
 get_iscript(vrrp_rt * vrrp, int state)
@@ -92,9 +91,10 @@ notify_script_name(char *cmdline)
 static int
 script_open_litteral(char *script)
 {
+	log_message(LOG_DEBUG, "Opening script file %s",script);
 	FILE *fOut = fopen(script, "r");;
 	if (!fOut) {
-		syslog(LOG_INFO, "Can't open %s (errno %d %s)", script,
+		log_message(LOG_INFO, "Can't open %s (errno %d %s)", script,
 		       errno, strerror(errno));
 		return 0;
 	}

@@ -2,7 +2,7 @@
 #
 # Keepalived OpenSource project.
 #
-# Copyright (C) 2001-2007 Alexandre Cassen, <acassen@freebox.fr>
+# Copyright (C) 2001-2011 Alexandre Cassen, <acassen@linux-vs.org>
 
 KERNEL   = @KERN@
 CC	 = @CC@
@@ -15,11 +15,6 @@ COMPILE	 = $(CC) $(CFLAGS) $(DEFS)
 OBJS = 	check_daemon.o check_data.o check_parser.o \
 	check_api.o check_tcp.o check_http.o check_ssl.o \
 	check_smtp.o check_misc.o ipwrapper.o ipvswrapper.o
-
-ifeq ($(KERNEL),_KRNL_2_2_)
-  OBJS += ipfwwrapper.o
-  HEADERS += ipfwwrapper.h
-endif
 
 HEADERS = $(OBJS:.o=.h)
 

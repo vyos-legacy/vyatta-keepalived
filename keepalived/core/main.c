@@ -5,8 +5,6 @@
  *
  * Part:        Main program structure.
  *
- * Version:     $Id: main.c,v 1.1.15 2007/09/15 04:07:41 acassen Exp $
- *
  * Author:      Alexandre Cassen, <acassen@linux-vs.org>
  *
  *              This program is distributed in the hope that it will be useful,
@@ -19,12 +17,14 @@
  *              as published by the Free Software Foundation; either version
  *              2 of the License, or (at your option) any later version.
  *
- * Copyright (C) 2001-2007 Alexandre Cassen, <acassen@freebox.fr>
+ * Copyright (C) 2001-2011 Alexandre Cassen, <acassen@linux-vs.org>
  */
 
 #include "main.h"
 #include "config.h"
 #include "signals.h"
+#include "pidfile.h"
+#include "logger.h"
 
 /* global var */
 char *conf_file = NULL;		/* Configuration file */
@@ -33,6 +33,9 @@ pid_t vrrp_child = -1;		/* VRRP child process ID */
 pid_t checkers_child = -1;	/* Healthcheckers child process ID */
 int daemon_mode = 0;		/* VRRP/CHECK subsystem selection */
 int linkwatch = 0;		/* Use linkwatch kernel netlink reflection */
+char *main_pidfile = KEEPALIVED_PID_FILE;	/* overrule default pidfile */
+char *checkers_pidfile = CHECKERS_PID_FILE;	/* overrule default pidfile */
+char *vrrp_pidfile = VRRP_PID_FILE;	/* overrule default pidfile */
 
 /* Log facility table */
 static struct {
@@ -46,15 +49,18 @@ static struct {
 static void
 stop_keepalived(void)
 {
-	syslog(LOG_INFO, "Stopping " VERSION_STRING);
+	log_message(LOG_INFO, "Stopping " VERSION_STRING);
 	/* Just cleanup memory & exit */
+	signal_handler_destroy();
 	thread_destroy_master(master);
 
-	if (daemon_mode == 3 || !daemon_mode)
-		pidfile_rm(KEEPALIVED_PID_FILE);
-	else
-		pidfile_rm((daemon_mode & 1) ? KEEPALIVED_VRRP_PID_FILE :
-			   KEEPALIVED_CHECKERS_PID_FILE);
+	pidfile_rm(main_pidfile);
+
+	if (daemon_mode & 1 || !daemon_mode)
+		pidfile_rm(vrrp_pidfile);
+
+	if (daemon_mode & 2 || !daemon_mode)
+		pidfile_rm(checkers_pidfile);
 
 #ifdef _DEBUG_
 	keepalived_free_final("Parent process");
@@ -79,7 +85,7 @@ start_keepalived(void)
 
 /* SIGHUP handler */
 void
-sighup(int sig)
+sighup(void *v, int sig)
 {
 	/* Set the reloading flag */
 	SET_RELOAD;
@@ -93,12 +99,12 @@ sighup(int sig)
 
 /* Terminate handler */
 void
-sigend(int sig)
+sigend(void *v, int sig)
 {
 	int status;
 
 	/* register the terminate thread */
-	syslog(LOG_INFO, "Terminating on signal");
+	log_message(LOG_INFO, "Terminating on signal");
 	thread_add_terminate_event(master);
 
 	if (vrrp_child > 0) {
@@ -116,11 +122,10 @@ void
 signal_init(void)
 {
 	signal_handler_init();
-	signal_set(SIGHUP, sighup);
-	signal_set(SIGINT, sigend);
-	signal_set(SIGTERM, sigend);
+	signal_set(SIGHUP, sighup, NULL);
+	signal_set(SIGINT, sigend, NULL);
+	signal_set(SIGTERM, sigend, NULL);
 	signal_ignore(SIGPIPE);
-	signal_noignore_sigchld();
 }
 
 /* Usage function */
@@ -149,11 +154,13 @@ usage(const char *prog)
 		"  %s --log-console        -l    Log message to local console.\n"
 		"  %s --log-detail         -D    Detailed log messages.\n"
 		"  %s --log-facility       -S    0-7 Set syslog facility to LOG_LOCAL[0-7]. (default=LOG_DAEMON)\n"
-		"  %s --vyatta-workaround  -X    Drop VIP on transition from signal.\n"
 		"  %s --help               -h    Display this short inlined help screen.\n"
-		"  %s --version            -v    Display the version number\n",
+		"  %s --version            -v    Display the version number\n"
+		"  %s --pid                -p    pidfile\n"
+		"  %s --checkers_pid       -c    checkers pidfile\n"
+		"  %s --vrrp_pid           -r    vrrp pidfile\n",
 		prog, prog, prog, prog, prog, prog, prog, prog,
-		prog, prog, prog, prog, prog);
+		prog, prog, prog, prog, prog, prog, prog);
 }
 
 /* Command line parser */
@@ -177,7 +184,9 @@ parse_cmdline(int argc, char **argv)
 		{"use-file", 'f', POPT_ARG_STRING, &option_arg, 'f'},
 		{"vrrp", 'P', POPT_ARG_NONE, NULL, 'P'},
 		{"check", 'C', POPT_ARG_NONE, NULL, 'C'},
-		{"vyatta-workaround", 'X', POPT_ARG_NONE, NULL, 'X'},
+		{"pid", 'p', POPT_ARG_STRING, &option_arg, 'p'},
+		{"checkers_pid", 'c', POPT_ARG_STRING, &option_arg, 'c'},
+		{"vrrp_pid", 'r', POPT_ARG_STRING, &option_arg, 'r'},
 		{NULL, 0, 0, NULL, 0}
 	};
 
@@ -215,9 +224,6 @@ parse_cmdline(int argc, char **argv)
 	case 'D':
 		debug |= 32;
 		break;
-	case 'X':
-	        debug |= 64;
-                break;
 	case 'S':
 		log_facility = LOG_FACILITY[atoi(option_arg)].facility;
 		break;
@@ -230,9 +236,19 @@ parse_cmdline(int argc, char **argv)
 	case 'C':
 		daemon_mode |= 2;
 		break;
+	case 'p':
+		main_pidfile = option_arg;
+		break;
+	case 'c':
+		checkers_pidfile = option_arg;
+		break;
+	case 'r':
+		vrrp_pidfile = option_arg;
+		break;
 	}
 
 	/* the others */
+	/* fixme: why is this duplicated? */
 	while ((c = poptGetNextOpt(context)) >= 0) {
 		switch (c) {
 		case 'l':
@@ -253,9 +269,6 @@ parse_cmdline(int argc, char **argv)
 		case 'D':
 			debug |= 32;
 			break;
-		case 'X':
-		        debug |= 64;
-			break;
 		case 'S':
 			log_facility = LOG_FACILITY[atoi(option_arg)].facility;
 			break;
@@ -267,6 +280,15 @@ parse_cmdline(int argc, char **argv)
 			break;
 		case 'C':
 			daemon_mode |= 2;
+			break;
+		case 'p':
+			main_pidfile = option_arg;
+			break;
+		case 'c':
+			checkers_pidfile = option_arg;
+			break;
+		case 'r':
+			vrrp_pidfile = option_arg;
 			break;
 		}
 	}
@@ -296,11 +318,11 @@ main(int argc, char **argv)
 	parse_cmdline(argc, argv);
 
 	openlog(PROG, LOG_PID | (debug & 1) ? LOG_CONS : 0, log_facility);
-	syslog(LOG_INFO, "Starting " VERSION_STRING);
+	log_message(LOG_INFO, "Starting " VERSION_STRING);
 
 	/* Check if keepalived is already running */
 	if (keepalived_running(daemon_mode)) {
-		syslog(LOG_INFO, "daemon is already running");
+		log_message(LOG_INFO, "daemon is already running");
 		goto end;
 	}
 
@@ -308,15 +330,9 @@ main(int argc, char **argv)
 	if (!(debug & 2))
 		xdaemon(0, 0, 0);
 
-	/* write the pidfile */
-	if (daemon_mode == 3 || !daemon_mode) {
-		if (!pidfile_write(KEEPALIVED_PID_FILE, getpid()))
-			goto end;
-	} else {
-		if (!pidfile_write((daemon_mode & 1) ? KEEPALIVED_VRRP_PID_FILE :
-				    KEEPALIVED_CHECKERS_PID_FILE, getpid()))
-			goto end;
-	}
+	/* write the father's pidfile */
+	if (!pidfile_write(main_pidfile, getpid()))
+		goto end;
 
 #ifndef _DEBUG_
 	/* Signal handling initialization  */

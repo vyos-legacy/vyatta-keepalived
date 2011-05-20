@@ -2,7 +2,7 @@
 #
 # Keepalived OpenSource project.
 #
-# Copyright (C) 2001-2004 Alexandre Cassen, <acassen@linux-vs.org>
+# Copyright (C) 2001-2011 Alexandre Cassen, <acassen@linux-vs.org>
 
 TARFILES = AUTHOR bin ChangeLog configure configure.in CONTRIBUTORS COPYING \
 	   doc genhash INSTALL install-sh keepalived keepalived.spec.in lib Makefile.in \
@@ -11,7 +11,6 @@ TARFILES = AUTHOR bin ChangeLog configure configure.in CONTRIBUTORS COPYING \
 TARBALL = keepalived-@VERSION@.tar.gz
 
 all:
-	mkdir -p bin
 	$(MAKE) -C lib || exit 1;
 	$(MAKE) -C keepalived
 	$(MAKE) -C genhash
@@ -35,23 +34,12 @@ clean:
 	$(MAKE) -C keepalived clean
 	$(MAKE) -C genhash clean
 
-id: ID
- 		
-ID: 
-	find . -name "*.[chCH]" -print | xargs mkid -fID 
-
-tags: TAGS
-
-TAGS:
-	find . -name "*.[chCH]" -print | etags -
-
 distclean:
 	$(MAKE) -C lib distclean
 	$(MAKE) -C keepalived distclean
 	$(MAKE) -C genhash distclean
 	rm -f Makefile
 	rm -f keepalived.spec
-	rm -f TAGS ID
 
 mrproper: distclean
 	rm -f config.*
@@ -67,7 +55,7 @@ install:
 tarball: mrproper
 	mkdir keepalived-@VERSION@
 	cp -a $(TARFILES) keepalived-@VERSION@
-	tar --exclude CVS -czf $(TARBALL) keepalived-@VERSION@
+	tar --exclude .git -czf $(TARBALL) keepalived-@VERSION@
 	rm -rf keepalived-@VERSION@
 
 rpm:

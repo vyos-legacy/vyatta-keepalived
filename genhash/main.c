@@ -5,7 +5,7 @@
  *
  * Part:        Main entry point.
  *
- * Version:     $Id: main.c,v 1.0.0 2002/11/20 21:34:18 acassen Exp $
+ * Version:     $Id: main.c,v 1.1.16 2009/02/14 03:25:07 acassen Exp $
  *
  * Authors:     Alexandre Cassen, <acassen@linux-vs.org>
  *
@@ -19,7 +19,7 @@
  *              as published by the Free Software Foundation; either version
  *              2 of the License, or (at your option) any later version.
  *
- * Copyright (C) 2001-2007 Alexandre Cassen, <acassen@freebox.fr>
+ * Copyright (C) 2001-2011 Alexandre Cassen, <acassen@linux-vs.org>
  */
 
 #include <signal.h>
@@ -34,7 +34,7 @@ REQ *req = NULL;
 
 /* Terminate handler */
 void
-sigend(int sig)
+sigend(void *v, int sig)
 {
 	/* register the terminate thread */
 	thread_add_terminate_event(master);
@@ -45,9 +45,9 @@ void
 signal_init(void)
 {
 	signal_handler_init();
-	signal_set(SIGHUP, sigend);
-	signal_set(SIGINT, sigend);
-	signal_set(SIGTERM, sigend);
+	signal_set(SIGHUP, sigend, NULL);
+	signal_set(SIGINT, sigend, NULL);
+	signal_set(SIGTERM, sigend, NULL);
 	signal_ignore(SIGPIPE);
 }
 
@@ -118,7 +118,10 @@ parse_cmdline(int argc, char **argv, REQ * req_obj)
 		req_obj->ssl = 1;
 		break;
 	case 's':
-		inet_ston(optarg, &req_obj->addr_ip);
+		if (!inet_ston(optarg, &req_obj->addr_ip)) {
+			fprintf(stderr, "server should be an IP, not %s\n", optarg);
+			return CMD_LINE_ERROR;
+		}
 		break;
 	case 'V':
 		req_obj->vhost = optarg;
@@ -138,7 +141,10 @@ parse_cmdline(int argc, char **argv, REQ * req_obj)
 			req_obj->ssl = 1;
 			break;
 		case 's':
-			inet_ston(optarg, &req_obj->addr_ip);
+			if (!inet_ston(optarg, &req_obj->addr_ip)) {
+				fprintf(stderr, "server should be an IP, not %s\n", optarg);
+				return CMD_LINE_ERROR;
+			}
 			break;
 		case 'V':
 			req_obj->vhost = optarg;
@@ -157,7 +163,7 @@ parse_cmdline(int argc, char **argv, REQ * req_obj)
 
 	/* check unexpected arguments */
 	if ((optarg = (char *) poptGetArg(context))) {
-		fprintf(stderr, "unexpected argument %s", optarg);
+		fprintf(stderr, "unexpected argument %s\n", optarg);
 		return CMD_LINE_ERROR;
 	}
 
@@ -170,7 +176,7 @@ parse_cmdline(int argc, char **argv, REQ * req_obj)
 int
 main(int argc, char **argv)
 {
-	thread thread_obj;
+	thread_t thread;
 
 	/* Allocate the room */
 	req = (REQ *) MALLOC(sizeof (REQ));
@@ -207,9 +213,12 @@ main(int argc, char **argv)
 	 * Processing the master thread queues,
 	 * return and execute one ready thread.
 	 * Run until error, used for debuging only.
+	 * Note that not calling launch_scheduler() does
+	 * not activate SIGCHLD handling, however, this
+	 * is no issue here.
 	 */
-	while (thread_fetch(master, &thread_obj))
-		thread_call(&thread_obj);
+	while (thread_fetch(master, &thread))
+		thread_call(&thread);
 
 	/* Finalize output informations */
 	if (req->verbose)

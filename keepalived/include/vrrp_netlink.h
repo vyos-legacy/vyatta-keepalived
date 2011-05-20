@@ -5,8 +5,6 @@
  *
  * Part:        vrrp_netlink.c include file.
  *
- * Version:     $Id: vrrp_netlink.h,v 1.1.15 2007/09/15 04:07:41 acassen Exp $
- *
  * Author:      Alexandre Cassen, <acassen@linux-vs.org>
  *
  *              This program is distributed in the hope that it will be useful,
@@ -19,7 +17,7 @@
  *              as published by the Free Software Foundation; either version
  *              2 of the License, or (at your option) any later version.
  *
- * Copyright (C) 2001-2007 Alexandre Cassen, <acassen@freebox.fr>
+ * Copyright (C) 2001-2011 Alexandre Cassen, <acassen@linux-vs.org>
  */
 
 #ifndef _VRRP_NETLINK_H
@@ -53,14 +51,14 @@ extern struct nl_handle nl_kernel;	/* Kernel reflection channel */
 extern struct nl_handle nl_cmd;		/* Command channel */
 
 /* prototypes */
-extern int addattr32(struct nlmsghdr *n, int maxlen, int type, uint32_t data_obj);
-extern int addattr_l(struct nlmsghdr *n, int maxlen, int type, void *data_obj,
-		     int alen);
-extern char *netlink_scope_n2a(int scope);
-extern int netlink_scope_a2n(char *scope);
-extern int netlink_socket(struct nl_handle *nl, unsigned long groups);
-extern int netlink_close(struct nl_handle *nl);
-extern int netlink_talk(struct nl_handle *nl, struct nlmsghdr *n);
+extern int addattr32(struct nlmsghdr *, int, int, uint32_t);
+extern int addattr_l(struct nlmsghdr *, int, int, void *, int);
+extern int rta_addattr_l(struct rtattr *, int, int, const void *, int);
+extern char *netlink_scope_n2a(int);
+extern int netlink_scope_a2n(char *);
+extern int netlink_socket(struct nl_handle *, unsigned long);
+extern int netlink_close(struct nl_handle *);
+extern int netlink_talk(struct nl_handle *, struct nlmsghdr *);
 extern int netlink_interface_lookup(void);
 extern int netlink_interface_refresh(void);
 extern void kernel_netlink_init(void);

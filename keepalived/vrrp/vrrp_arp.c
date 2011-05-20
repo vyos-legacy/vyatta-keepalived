@@ -5,8 +5,6 @@
  *
  * Part:        ARP primitives.
  *
- * Version:     $Id: vrrp_arp.c,v 1.1.15 2007/09/15 04:07:41 acassen Exp $
- *
  * Author:      Alexandre Cassen, <acassen@linux-vs.org>
  *
  *              This program is distributed in the hope that it will be useful,
@@ -19,43 +17,21 @@
  *              as published by the Free Software Foundation; either version
  *              2 of the License, or (at your option) any later version.
  *
- * Copyright (C) 2001-2007 Alexandre Cassen, <acassen@freebox.fr>
+ * Copyright (C) 2001-2011 Alexandre Cassen, <acassen@linux-vs.org>
  */
 
-/* Work around incompatibility between linux/types.h and sys/types.h */
-#define __KERNEL_STRICT_NAMES
+/* system includes */
+#include <netpacket/packet.h>
 
 /* local includes */
-#include "vrrp_arp.h"
+#include "logger.h"
 #include "memory.h"
 #include "utils.h"
-
-/* system includes */
-#include <linux/if_packet.h>
+#include "vrrp_arp.h"
 
 /* global vars */
 char *garp_buffer;
 int garp_fd;
-
-/* Make shared socket */
-void gratuitous_arp_init(void)
-{
-	/* Initalize shared buffer */
-	garp_buffer = (char *)MALLOC(sizeof(m_arphdr) + ETHER_HDR_LEN);
-
-	/* Create the socket descriptor */
-	garp_fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_RARP));
-
-	if (garp_fd > 0)
-		syslog(LOG_INFO, "Registering gratutious ARP shared channel");
-	else
-		syslog(LOG_INFO, "Error while registering gratutious ARP shared channel");
-}
-void gratuitous_arp_close(void)
-{
-	FREE(garp_buffer);
-	close(garp_fd);
-}
 
 /* Send the gratuitous ARP message */
 static int send_arp(ip_address *ipaddress)
@@ -74,8 +50,8 @@ static int send_arp(ip_address *ipaddress)
 	len = sendto(garp_fd, garp_buffer, sizeof(m_arphdr) + ETHER_HDR_LEN
 		     , 0, (struct sockaddr *)&sll, sizeof(sll));
 	if (len < 0)
-		syslog(LOG_INFO, "Error sending gratutious ARP on %s for %s"
-		       , IF_NAME(ipaddress->ifp), inet_ntop2(ipaddress->addr));
+		log_message(LOG_INFO, "Error sending gratutious ARP on %s for %s",
+			    IF_NAME(ipaddress->ifp), inet_ntop2(ipaddress->u.sin.sin_addr.s_addr));
 	return len;
 }
 
@@ -84,7 +60,7 @@ int send_gratuitous_arp(ip_address *ipaddress)
 {
 	struct ether_header *eth = (struct ether_header *) garp_buffer;
 	m_arphdr *arph		 = (m_arphdr *) (garp_buffer + ETHER_HDR_LEN);
-	char *hwaddr		 = IF_HWADDR(ipaddress->ifp);
+	char *hwaddr		 = (char *) IF_HWADDR(ipaddress->ifp);
 	int len;
 
 	/* Ethernet header */
@@ -99,8 +75,9 @@ int send_gratuitous_arp(ip_address *ipaddress)
 	arph->ar_pln = IPPROTO_ADDR_LEN;
 	arph->ar_op = htons(ARPOP_REQUEST);
 	memcpy(arph->__ar_sha, hwaddr, ETH_ALEN);
-	memcpy(arph->__ar_sip, &ipaddress->addr, sizeof (ipaddress->addr));
-	memcpy(arph->__ar_tip, &ipaddress->addr, sizeof (ipaddress->addr));
+	memcpy(arph->__ar_sip, &ipaddress->u.sin.sin_addr.s_addr, sizeof(struct in_addr));
+	memset(arph->__ar_tha, 0xFF, ETH_ALEN);
+	memcpy(arph->__ar_tip, &ipaddress->u.sin.sin_addr.s_addr, sizeof(struct in_addr));
 
 	/* Send the ARP message */
 	len = send_arp(ipaddress);
@@ -108,4 +85,27 @@ int send_gratuitous_arp(ip_address *ipaddress)
 	/* Cleanup room for next round */
 	memset(garp_buffer, 0, sizeof(m_arphdr) + ETHER_HDR_LEN);
 	return len;
+}
+
+
+/*
+ *	Gratuitous ARP init/close
+ */
+void gratuitous_arp_init(void)
+{
+	/* Initalize shared buffer */
+	garp_buffer = (char *)MALLOC(sizeof(m_arphdr) + ETHER_HDR_LEN);
+
+	/* Create the socket descriptor */
+	garp_fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_RARP));
+
+	if (garp_fd > 0)
+		log_message(LOG_INFO, "Registering gratutious ARP shared channel");
+	else
+		log_message(LOG_INFO, "Error while registering gratutious ARP shared channel");
+}
+void gratuitous_arp_close(void)
+{
+	FREE(garp_buffer);
+	close(garp_fd);
 }

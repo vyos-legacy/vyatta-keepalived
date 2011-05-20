@@ -5,8 +5,6 @@
  *
  * Part:        layer4.c include file.
  *
- * Version:     $Id: layer4.h,v 1.1.15 2007/09/15 04:07:41 acassen Exp $
- *
  * Author:      Alexandre Cassen, <acassen@linux-vs.org>
  *
  *              This program is distributed in the hope that it will be useful,
@@ -19,7 +17,7 @@
  *              as published by the Free Software Foundation; either version
  *              2 of the License, or (at your option) any later version.
  *
- * Copyright (C) 2001-2007 Alexandre Cassen, <acassen@freebox.fr>
+ * Copyright (C) 2001-2011 Alexandre Cassen, <acassen@linux-vs.org>
  */
 
 #ifndef _LAYER4_H
@@ -46,17 +44,16 @@ enum connect_result {
 
 /* Prototypes defs */
 extern enum connect_result
- tcp_bind_connect(int, uint32_t, uint16_t, uint32_t);
+ tcp_bind_connect(int, struct sockaddr_storage *, struct sockaddr_storage *);
 
 extern enum connect_result
- tcp_connect(int, uint32_t, uint16_t);
+ tcp_connect(int, struct sockaddr_storage *);
 
 extern enum connect_result
- tcp_socket_state(int, thread *, uint32_t, uint16_t,
-		  int (*func) (struct _thread *));
+ tcp_socket_state(int, thread_t *, int (*func) (thread_t *));
 
 extern void
  tcp_connection_state(int, enum connect_result
-		      , thread *, int (*func) (struct _thread *)
+		      , thread_t *, int (*func) (thread_t *)
 		      , long);
 #endif
