@@ -5,8 +5,6 @@
  *
  * Part:        Main program structure.
  *
- * Version:     $Id: main.c,v 1.1.15 2007/09/15 04:07:41 acassen Exp $
- *
  * Author:      Alexandre Cassen, <acassen@linux-vs.org>
  *
  *              This program is distributed in the hope that it will be useful,
@@ -19,11 +17,12 @@
  *              as published by the Free Software Foundation; either version
  *              2 of the License, or (at your option) any later version.
  *
- * Copyright (C) 2001-2007 Alexandre Cassen, <acassen@freebox.fr>
+ * Copyright (C) 2001-2011 Alexandre Cassen, <acassen@linux-vs.org>
  */
 
 #include <syslog.h>
 #include "daemon.h"
+#include "logger.h"
 #include "utils.h"
 
 /* Daemonization function coming from zebra source code */
@@ -31,11 +30,12 @@ pid_t
 xdaemon(int nochdir, int noclose, int exitflag)
 {
 	pid_t pid;
+	int ret;
 
 	/* In case of fork is error. */
 	pid = fork();
 	if (pid < 0) {
-		syslog(LOG_INFO, "xdaemon: fork error");
+		log_message(LOG_INFO, "xdaemon: fork error");
 		return -1;
 	}
 
@@ -50,13 +50,13 @@ xdaemon(int nochdir, int noclose, int exitflag)
 	/* Become session leader and get pid. */
 	pid = setsid();
 	if (pid < -1) {
-		syslog(LOG_INFO, "xdaemon: setsid error");
+		log_message(LOG_INFO, "xdaemon: setsid error");
 		return -1;
 	}
 
 	/* Change directory to root. */
 	if (!nochdir)
-		chdir("/");
+		ret = chdir("/");
 
 	/* File descriptor close. */
 	if (!noclose) {

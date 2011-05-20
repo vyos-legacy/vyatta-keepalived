@@ -137,7 +137,7 @@ describes the moveable IP for each instance of a group in vrrp_sync_group.
 Here are described two IPs (on inside_network and on outside_network), 
 on machine "my_hostname", which belong to the group VG_1 and
 which will transition together on any state change.
-.PP
+.PPa
  #You will need to write another block for outside_network.
  vrrp_instance inside_network {
     # Initial state, MASTER|BACKUP
@@ -323,6 +323,34 @@ A virtual_server can be a declaration of one of
     # VirtualHost string for HTTP_GET or SSL_GET
     # eg virtualhost www.firewall.loc
     virtualhost <STRING>                
+
+    # Assume silently all RSs down and healthchecks
+    # failed on start. This helps preventing false
+    # positive actions on startup. Alpha mode is
+    # disabled by default.
+    alpha
+
+    # On daemon shutdown, consider quorum and RS
+    # down notifiers for execution, where appropriate.
+    # Omega mode is disabled by default.
+    omega
+
+    # Minimum total weight of all live servers in
+    # the pool necessary to operate VS with no
+    # quality regression. Defaults to 1.
+    quorum <INT>
+
+    # Tolerate this much weight units compared to the
+    # nominal quorum, when considering quorum gain
+    # or loss. A flap dampener. Defaults to 0.
+    hysteresis <INT>
+
+    # Script to launch when quorum is gained.
+    quorum_up <STRING>|<QUOTED-STRING>
+
+    # Script to launch when quorum is lost.
+    quorum_down <STRING>|<QUOTED-STRING>
+
 
     # setup realserver(s)
 

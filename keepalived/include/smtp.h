@@ -5,8 +5,6 @@
  *
  * Part:        smtp.c include file.
  *
- * Version:     $Id: smtp.h,v 1.1.15 2007/09/15 04:07:41 acassen Exp $
- *
  * Author:      Alexandre Cassen, <acassen@linux-vs.org>
  *
  *              This program is distributed in the hope that it will be useful,
@@ -19,7 +17,7 @@
  *              as published by the Free Software Foundation; either version
  *              2 of the License, or (at your option) any later version.
  *
- * Copyright (C) 2001-2007 Alexandre Cassen, <acassen@freebox.fr>
+ * Copyright (C) 2001-2011 Alexandre Cassen, <acassen@linux-vs.org>
  */
 
 #ifndef _SMTP_H
@@ -36,6 +34,7 @@
 #include "vrrp.h"
 
 /* global defs */
+#define SMTP_PORT_STR		"25"
 #define SMTP_PORT		25
 #define SMTP_BUFFER_LENGTH	512
 #define SMTP_BUFFER_MAX		1024

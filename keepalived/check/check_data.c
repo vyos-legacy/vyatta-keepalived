@@ -5,8 +5,6 @@
  *
  * Part:        Healthcheckers dynamic data structure definition.
  *
- * Version:     $Id: check_data.c,v 1.1.15 2007/09/15 04:07:41 acassen Exp $
- *
  * Author:      Alexandre Cassen, <acassen@linux-vs.org>
  *
  *              This program is distributed in the hope that it will be useful,
@@ -19,13 +17,16 @@
  *              as published by the Free Software Foundation; either version
  *              2 of the License, or (at your option) any later version.
  *
- * Copyright (C) 2001-2007 Alexandre Cassen, <acassen@freebox.fr>
+ * Copyright (C) 2001-2011 Alexandre Cassen, <acassen@linux-vs.org>
  */
 
+#include <netdb.h>
 #include "check_data.h"
 #include "check_api.h"
+#include "logger.h"
 #include "memory.h"
 #include "utils.h"
+#include "ipwrapper.h"
 
 /* global vars */
 check_conf_data *check_data = NULL;
@@ -57,15 +58,15 @@ dump_ssl(void)
 	SSL_DATA *ssl = check_data->ssl;
 
 	if (ssl->password)
-		syslog(LOG_INFO, " Password : %s", ssl->password);
+		log_message(LOG_INFO, " Password : %s", ssl->password);
 	if (ssl->cafile)
-		syslog(LOG_INFO, " CA-file : %s", ssl->cafile);
+		log_message(LOG_INFO, " CA-file : %s", ssl->cafile);
 	if (ssl->certfile)
-		syslog(LOG_INFO, " Certificate file : %s", ssl->certfile);
+		log_message(LOG_INFO, " Certificate file : %s", ssl->certfile);
 	if (ssl->keyfile)
-		syslog(LOG_INFO, " Key file : %s", ssl->keyfile);
+		log_message(LOG_INFO, " Key file : %s", ssl->keyfile);
 	if (!ssl->password && !ssl->cafile && !ssl->certfile && !ssl->keyfile)
-		syslog(LOG_INFO, " Using autogen SSL context");
+		log_message(LOG_INFO, " Using autogen SSL context");
 }
 
 /* Virtual server group facility functions */
@@ -84,7 +85,7 @@ dump_vsg(void *data)
 {
 	virtual_server_group *vsg = data;
 
-	syslog(LOG_INFO, " Virtual Server Group = %s", vsg->gname);
+	log_message(LOG_INFO, " Virtual Server Group = %s", vsg->gname);
 	dump_list(vsg->addr_ip);
 	dump_list(vsg->range);
 	dump_list(vsg->vfwmark);
@@ -100,16 +101,16 @@ dump_vsg_entry(void *data)
 	virtual_server_group_entry *vsg_entry = data;
 
 	if (vsg_entry->vfwmark)
-		syslog(LOG_INFO, "   FWMARK = %d", vsg_entry->vfwmark);
+		log_message(LOG_INFO, "   FWMARK = %d", vsg_entry->vfwmark);
 	else if (vsg_entry->range)
-		syslog(LOG_INFO, "   VIP Range = %s-%d, VPORT = %d"
-		       , inet_ntop2(SVR_IP(vsg_entry))
-		       , vsg_entry->range
-		       , ntohs(SVR_PORT(vsg_entry)));
+		log_message(LOG_INFO, "   VIP Range = %s-%d, VPORT = %d"
+				    , inet_sockaddrtos(&vsg_entry->addr)
+				    , vsg_entry->range
+				    , ntohs(inet_sockaddrport(&vsg_entry->addr)));
 	else
-		syslog(LOG_INFO, "   VIP = %s, VPORT = %d"
-		       , inet_ntop2(SVR_IP(vsg_entry))
-		       , ntohs(SVR_PORT(vsg_entry)));
+		log_message(LOG_INFO, "   VIP = %s, VPORT = %d"
+				    , inet_sockaddrtos(&vsg_entry->addr)
+				    , ntohs(inet_sockaddrport(&vsg_entry->addr)));
 }
 void
 alloc_vsg(char *gname)
@@ -138,9 +139,8 @@ alloc_vsg_entry(vector strvec)
 		new->vfwmark = atoi(VECTOR_SLOT(strvec, 1));
 		list_add(vsg->vfwmark, new);
 	} else {
-		inet_ston(VECTOR_SLOT(strvec, 0), &new->addr_ip);
 		new->range = inet_stor(VECTOR_SLOT(strvec, 0));
-		new->addr_port = htons(atoi(VECTOR_SLOT(strvec, 1)));
+		inet_stosockaddr(VECTOR_SLOT(strvec, 0), VECTOR_SLOT(strvec, 1), &new->addr);
 		if (!new->range)
 			list_add(vsg->addr_ip, new);
 		else
@@ -157,6 +157,8 @@ free_vs(void *data)
 	FREE_PTR(vs->virtualhost);
 	FREE_PTR(vs->s_svr);
 	free_list(vs->rs);
+	FREE_PTR(vs->quorum_up);
+	FREE_PTR(vs->quorum_down);
 	FREE(vs);
 }
 static void
@@ -165,61 +167,56 @@ dump_vs(void *data)
 	virtual_server *vs = data;
 
 	if (vs->vsgname)
-		syslog(LOG_INFO, " VS GROUP = %s", vs->vsgname);
+		log_message(LOG_INFO, " VS GROUP = %s", vs->vsgname);
 	else if (vs->vfwmark)
-		syslog(LOG_INFO, " VS FWMARK = %d", vs->vfwmark);
+		log_message(LOG_INFO, " VS FWMARK = %d", vs->vfwmark);
 	else
-		syslog(LOG_INFO, " VIP = %s, VPORT = %d", inet_ntop2(SVR_IP(vs))
-		       , ntohs(SVR_PORT(vs)));
+		log_message(LOG_INFO, " VIP = %s, VPORT = %d"
+				    , inet_sockaddrtos(&vs->addr), ntohs(inet_sockaddrport(&vs->addr)));
 	if (vs->virtualhost)
-		syslog(LOG_INFO, "   VirtualHost = %s", vs->virtualhost);
-	syslog(LOG_INFO, "   delay_loop = %lu, lb_algo = %s",
+		log_message(LOG_INFO, "   VirtualHost = %s", vs->virtualhost);
+	log_message(LOG_INFO, "   delay_loop = %lu, lb_algo = %s",
 	       (vs->delay_loop >= TIMER_MAX_SEC) ? vs->delay_loop/TIMER_HZ :
 						   vs->delay_loop,
 	       vs->sched);
 	if (atoi(vs->timeout_persistence) > 0)
-		syslog(LOG_INFO, "   persistence timeout = %s",
+		log_message(LOG_INFO, "   persistence timeout = %s",
 		       vs->timeout_persistence);
 	if (vs->granularity_persistence)
-		syslog(LOG_INFO, "   persistence granularity = %s",
+		log_message(LOG_INFO, "   persistence granularity = %s",
 		       inet_ntop2(vs->granularity_persistence));
-	syslog(LOG_INFO, "   protocol = %s",
+	log_message(LOG_INFO, "   protocol = %s",
 	       (vs->service_type == IPPROTO_TCP) ? "TCP" : "UDP");
+	log_message(LOG_INFO, "   alpha is %s, omega is %s",
+		    vs->alpha ? "ON" : "OFF", vs->omega ? "ON" : "OFF");
+	log_message(LOG_INFO, "   quorum = %lu, hysteresis = %lu", vs->quorum, vs->hysteresis);
+	if (vs->quorum_up)
+		log_message(LOG_INFO, "   -> Notify script UP = %s",
+			    vs->quorum_up);
+	if (vs->quorum_down)
+		log_message(LOG_INFO, "   -> Notify script DOWN = %s",
+			    vs->quorum_down);
 	if (vs->ha_suspend)
-		syslog(LOG_INFO, "   Using HA suspend");
+		log_message(LOG_INFO, "   Using HA suspend");
 
 	switch (vs->loadbalancing_kind) {
 #ifdef _WITH_LVS_
-#ifdef _KRNL_2_2_
-	case 0:
-		syslog(LOG_INFO, "   lb_kind = NAT");
-		if (vs->nat_mask)
-			syslog(LOG_INFO, "   nat mask = %s", inet_ntop2(vs->nat_mask));
-		break;
-	case IP_MASQ_F_VS_DROUTE:
-		syslog(LOG_INFO, "   lb_kind = DR");
-		break;
-	case IP_MASQ_F_VS_TUNNEL:
-		syslog(LOG_INFO, "   lb_kind = TUN");
-		break;
-#else
 	case IP_VS_CONN_F_MASQ:
-		syslog(LOG_INFO, "   lb_kind = NAT");
+		log_message(LOG_INFO, "   lb_kind = NAT");
 		break;
 	case IP_VS_CONN_F_DROUTE:
-		syslog(LOG_INFO, "   lb_kind = DR");
+		log_message(LOG_INFO, "   lb_kind = DR");
 		break;
 	case IP_VS_CONN_F_TUNNEL:
-		syslog(LOG_INFO, "   lb_kind = TUN");
+		log_message(LOG_INFO, "   lb_kind = TUN");
 		break;
-#endif
 #endif
 	}
 
 	if (vs->s_svr) {
-		syslog(LOG_INFO, "   sorry server = %s:%d",
-		       inet_ntop2(SVR_IP(vs->s_svr))
-		       , ntohs(SVR_PORT(vs->s_svr)));
+		log_message(LOG_INFO, "   sorry server = %s:%d"
+				    , inet_sockaddrtos(&vs->s_svr->addr)
+				    , ntohs(inet_sockaddrport(&vs->s_svr->addr)));
 	}
 	if (!LIST_ISEMPTY(vs->rs))
 		dump_list(vs->rs);
@@ -239,12 +236,19 @@ alloc_vs(char *ip, char *port)
 	} else if (!strcmp(ip, "fwmark")) {
 		new->vfwmark = atoi(port);
 	} else {
-		inet_ston(ip, &new->addr_ip);
-		new->addr_port = htons(atoi(port));
+		inet_stosockaddr(ip, port, &new->addr);
 	}
+
 	new->delay_loop = KEEPALIVED_DEFAULT_DELAY;
 	strncpy(new->timeout_persistence, "0", 1);
 	new->virtualhost = NULL;
+	new->alpha = 0;
+	new->omega = 0;
+	new->quorum_up = NULL;
+	new->quorum_down = NULL;
+	new->quorum = 1;
+	new->hysteresis = 0;
+	new->quorum_state = UP;
 
 	list_add(check_data->vs, new);
 }
@@ -257,8 +261,8 @@ alloc_ssvr(char *ip, char *port)
 
 	vs->s_svr = (real_server *) MALLOC(sizeof (real_server));
 	vs->s_svr->weight = 1;
-	inet_ston(ip, &vs->s_svr->addr_ip);
-	vs->s_svr->addr_port = htons(atoi(port));
+	vs->s_svr->iweight = 1;
+	inet_stosockaddr(ip, port, &vs->s_svr->addr);
 }
 
 /* Real server facility functions */
@@ -275,17 +279,18 @@ static void
 dump_rs(void *data)
 {
 	real_server *rs = data;
-	syslog(LOG_INFO, "   RIP = %s, RPORT = %d, WEIGHT = %d",
-	       inet_ntop2(SVR_IP(rs))
-	       , ntohs(SVR_PORT(rs))
-	       , rs->weight);
+
+	log_message(LOG_INFO, "   RIP = %s, RPORT = %d, WEIGHT = %d"
+			    , inet_sockaddrtos(&rs->addr)
+			    , ntohs(inet_sockaddrport(&rs->addr))
+			    , rs->weight);
 	if (rs->inhibit)
-		syslog(LOG_INFO, "     -> Inhibit service on failure");
+		log_message(LOG_INFO, "     -> Inhibit service on failure");
 	if (rs->notify_up)
-		syslog(LOG_INFO, "     -> Notify script UP = %s",
+		log_message(LOG_INFO, "     -> Notify script UP = %s",
 		       rs->notify_up);
 	if (rs->notify_down)
-		syslog(LOG_INFO, "     -> Notify script DOWN = %s",
+		log_message(LOG_INFO, "     -> Notify script DOWN = %s",
 		       rs->notify_down);
 }
 
@@ -302,10 +307,10 @@ alloc_rs(char *ip, char *port)
 	real_server *new;
 
 	new = (real_server *) MALLOC(sizeof (real_server));
+	inet_stosockaddr(ip, port, &new->addr);
 
-	inet_ston(ip, &new->addr_ip);
-	new->addr_port = htons(atoi(port));
 	new->weight = 1;
+	new->iweight = 1;
 	new->failed_checkers = alloc_list(free_failed_checkers, NULL);
 
 	if (LIST_ISEMPTY(vs->rs))
@@ -327,27 +332,27 @@ alloc_check_data(void)
 }
 
 void
-free_check_data(check_conf_data *check_data_obj)
+free_check_data(check_conf_data *check_data)
 {
-	free_list(check_data_obj->vs);
-	free_list(check_data_obj->vs_group);
-	FREE(check_data_obj);
+	free_list(check_data->vs);
+	free_list(check_data->vs_group);
+	FREE(check_data);
 }
 
 void
-dump_check_data(check_conf_data *check_data_obj)
+dump_check_data(check_conf_data *check_data)
 {
-	if (check_data_obj->ssl) {
-		syslog(LOG_INFO, "------< SSL definitions >------");
+	if (check_data->ssl) {
+		log_message(LOG_INFO, "------< SSL definitions >------");
 		dump_ssl();
 	}
-	if (!LIST_ISEMPTY(check_data_obj->vs)) {
-		syslog(LOG_INFO, "------< LVS Topology >------");
-		syslog(LOG_INFO, " System is compiled with LVS v%d.%d.%d",
+	if (!LIST_ISEMPTY(check_data->vs)) {
+		log_message(LOG_INFO, "------< LVS Topology >------");
+		log_message(LOG_INFO, " System is compiled with LVS v%d.%d.%d",
 		       NVERSION(IP_VS_VERSION_CODE));
-		if (!LIST_ISEMPTY(check_data_obj->vs_group))
-			dump_list(check_data_obj->vs_group);
-		dump_list(check_data_obj->vs);
+		if (!LIST_ISEMPTY(check_data->vs_group))
+			dump_list(check_data->vs_group);
+		dump_list(check_data->vs);
 	}
 	dump_checkers_queue();
 }

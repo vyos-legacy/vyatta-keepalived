@@ -5,8 +5,6 @@
  *
  * Part:        ipwrapper.c include file.
  *
- * Version:     $Id: ipwrapper.h,v 1.1.15 2007/09/15 04:07:41 acassen Exp $
- *
  * Author:      Alexandre Cassen, <acassen@linux-vs.org>
  *
  *              This program is distributed in the hope that it will be useful,
@@ -19,7 +17,7 @@
  *              as published by the Free Software Foundation; either version
  *              2 of the License, or (at your option) any later version.
  *
- * Copyright (C) 2001-2007 Alexandre Cassen, <acassen@freebox.fr>
+ * Copyright (C) 2001-2011 Alexandre Cassen, <acassen@linux-vs.org>
  */
 
 #ifndef _IPWRAPPER_H
@@ -44,31 +42,19 @@
 #define DOWN 0
 
 /* LVS command set by kernel */
-#ifdef _KRNL_2_2_
-#define LVS_CMD_ADD		IP_MASQ_CMD_ADD
-#define LVS_CMD_DEL		IP_MASQ_CMD_DEL
-#define LVS_CMD_ADD_DEST	IP_MASQ_CMD_ADD_DEST
-#define LVS_CMD_DEL_DEST	IP_MASQ_CMD_DEL_DEST
-#define LVS_CMD_EDIT_DEST	IP_MASQ_CMD_SET_DEST
-#else
 #define LVS_CMD_ADD		IP_VS_SO_SET_ADD
 #define LVS_CMD_DEL		IP_VS_SO_SET_DEL
 #define LVS_CMD_ADD_DEST	IP_VS_SO_SET_ADDDEST
 #define LVS_CMD_DEL_DEST	IP_VS_SO_SET_DELDEST
 #define LVS_CMD_EDIT_DEST	IP_VS_SO_SET_EDITDEST
-#endif
 
 /* prototypes */
-extern void perform_svr_state(int alive, virtual_server * vs, real_server * rs);
-extern void update_svr_wgt(int weight, virtual_server * vs, real_server * rs);
-extern int svr_checker_up(checker_id_t cid, real_server * rs);
-extern void update_svr_checker_state(int alive, checker_id_t cid,
-				     virtual_server * vs, real_server * rs);
+extern void perform_svr_state(int, virtual_server *, real_server *);
+extern void update_svr_wgt(int, virtual_server *, real_server *);
+extern int svr_checker_up(checker_id_t, real_server *);
+extern void update_svr_checker_state(int, checker_id_t, virtual_server *, real_server *);
 extern int init_services(void);
 extern int clear_services(void);
 extern int clear_diff_services(void);
-
-//extern int ipvs_cmd(int cmd, virtual_server * vserver, real_server * rserver);
-extern int ipfw_cmd(int cmd, virtual_server * vserver, real_server * rserver);
 
 #endif

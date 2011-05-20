@@ -5,8 +5,6 @@
  *
  * Part:        pidfile utility.
  *
- * Version:     $Id: pidfile.c,v 1.1.15 2007/09/15 04:07:41 acassen Exp $
- *
  * Author:      Alexandre Cassen, <acassen@linux-vs.org>
  *
  *              This program is distributed in the hope that it will be useful,
@@ -19,10 +17,14 @@
  *              as published by the Free Software Foundation; either version
  *              2 of the License, or (at your option) any later version.
  *
- * Copyright (C) 2001-2007 Alexandre Cassen, <acassen@freebox.fr>
+ * Copyright (C) 2001-2011 Alexandre Cassen, <acassen@linux-vs.org>
  */
 
+#include "logger.h"
 #include "pidfile.h"
+extern char *main_pidfile;
+extern char *checkers_pidfile;
+extern char *vrrp_pidfile;
 
 /* Create the runnnig daemon pidfile */
 int
@@ -31,7 +33,7 @@ pidfile_write(char *pid_file, int pid)
 	FILE *pidfile = fopen(pid_file, "w");
 
 	if (!pidfile) {
-		syslog(LOG_INFO, "pidfile_write : Can not open %s pidfile",
+		log_message(LOG_INFO, "pidfile_write : Can not open %s pidfile",
 		       pid_file);
 		return 0;
 	}
@@ -53,17 +55,18 @@ process_running(char *pid_file)
 {
 	FILE *pidfile = fopen(pid_file, "r");
 	pid_t pid;
+	int ret;
 
 	/* No pidfile */
 	if (!pidfile)
 		return 0;
 
-	fscanf(pidfile, "%d", &pid);
+	ret = fscanf(pidfile, "%d", &pid);
 	fclose(pidfile);
 
 	/* If no process is attached to pidfile, remove it */
 	if (kill(pid, 0)) {
-		syslog(LOG_INFO, "Remove a zombie pid file %s", pid_file);
+		log_message(LOG_INFO, "Remove a zombie pid file %s", pid_file);
 		pidfile_rm(pid_file);
 		return 0;
 	}
@@ -75,28 +78,14 @@ process_running(char *pid_file)
 int
 keepalived_running(int mode)
 {
-	if (process_running(KEEPALIVED_PID_FILE))
+	if (process_running(main_pidfile))
 		return 1;
 	else if (mode & 1 || mode & 2)
-		return process_running((mode & 1) ? KEEPALIVED_VRRP_PID_FILE :
-				       KEEPALIVED_CHECKERS_PID_FILE);
+		return process_running((mode & 1) ? vrrp_pidfile :
+				       checkers_pidfile);
 
-	if (process_running(KEEPALIVED_VRRP_PID_FILE) ||
-	    process_running(KEEPALIVED_CHECKERS_PID_FILE))
+	if (process_running(vrrp_pidfile) ||
+	    process_running(checkers_pidfile))
 		return 1;
 	return 0;
-}
-
-/* Return VRRP child process state */
-int
-vrrp_running(void)
-{
-	return process_running(VRRP_PID_FILE);
-}
-
-/* Return VRRP child process state */
-int
-checkers_running(void)
-{
-	return process_running(CHECKERS_PID_FILE);
 }

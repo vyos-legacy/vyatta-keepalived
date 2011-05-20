@@ -5,8 +5,6 @@
  *
  * Part:        Manipulation functions for IPVS & IPFW wrappers.
  *
- * Version:     $Id: ipwrapper.c,v 1.1.15 2007/09/15 04:07:41 acassen Exp $
- *
  * Author:      Alexandre Cassen, <acassen@linux-vs.org>
  *
  *              This program is distributed in the hope that it will be useful,
@@ -19,14 +17,32 @@
  *              as published by the Free Software Foundation; either version
  *              2 of the License, or (at your option) any later version.
  *
- * Copyright (C) 2001-2007 Alexandre Cassen, <acassen@freebox.fr>
+ * Copyright (C) 2001-2011 Alexandre Cassen, <acassen@linux-vs.org>
  */
 
 #include "ipwrapper.h"
 #include "ipvswrapper.h"
+#include "logger.h"
 #include "memory.h"
 #include "utils.h"
 #include "notify.h"
+#include "main.h"
+
+/* Returns the sum of all RS weight in a virtual server. */
+long unsigned
+weigh_live_realservers(virtual_server * vs)
+{
+	element e;
+	real_server *svr;
+	long unsigned count = 0;
+
+	for (e = LIST_HEAD(vs->rs); e; ELEMENT_NEXT(e)) {
+		svr = ELEMENT_DATA(e);
+		if (ISALIVE(svr))
+			count += svr->weight;
+	}
+	return count;
+}
 
 /* Remove a realserver IPVS rule */
 static int
@@ -34,26 +50,46 @@ clear_service_rs(list vs_group, virtual_server * vs, list l)
 {
 	element e;
 	real_server *rs;
+	char rsip[INET6_ADDRSTRLEN];
 
 	for (e = LIST_HEAD(l); e; ELEMENT_NEXT(e)) {
 		rs = ELEMENT_DATA(e);
 		if (ISALIVE(rs)) {
-			if (!ipvs_cmd(LVS_CMD_DEL_DEST
-				      , vs_group
-				      , vs
-				      , rs))
+			if (!ipvs_cmd(LVS_CMD_DEL_DEST, vs_group, vs, rs))
 				return 0;
 			UNSET_ALIVE(rs);
+			if (!vs->omega)
+				continue;
+
+			/* In Omega mode we call VS and RS down notifiers
+			 * all the way down the exit, as necessary.
+			 */
+			if (rs->notify_down) {
+				log_message(LOG_INFO, "Executing [%s] for service [%s]:%d in VS [%s]:%d"
+						    , rs->notify_down
+						    , inet_sockaddrtos2(&rs->addr, rsip)
+						    , ntohs(inet_sockaddrport(&rs->addr))
+						    , (vs->vsgname) ? vs->vsgname : inet_sockaddrtos(&vs->addr)
+						    , ntohs(inet_sockaddrport(&vs->addr)));
+				notify_exec(rs->notify_down);
+			}
+
+			/* Sooner or later VS will lose the quorum (if any). However,
+			 * we don't push in a sorry server then, hence the regression
+			 * is intended.
+			 */
+			if (vs->quorum_state == UP && vs->quorum_down &&
+			    weigh_live_realservers(vs) < vs->quorum - vs->hysteresis) {
+				vs->quorum_state = DOWN;
+				log_message(LOG_INFO, "Executing [%s] for VS [%s]:%d"
+						    , vs->quorum_down
+						    , (vs->vsgname) ? vs->vsgname : inet_sockaddrtos(&vs->addr)
+						    , ntohs(inet_sockaddrport(&vs->addr)));
+				notify_exec(vs->quorum_down);
+			}
 		}
-#ifdef _KRNL_2_2_
-		/* if we have a /32 mask, we create one nat rules per
-		 * realserver.
-		 */
-		if (vs->nat_mask == HOST_NETMASK)
-			if (!ipfw_cmd(IP_FW_CMD_DEL, vs, rs))
-				return 0;
-#endif
 	}
+
 	return 1;
 }
 
@@ -65,13 +101,11 @@ clear_service_vs(list vs_group, virtual_server * vs)
 	if (!LIST_ISEMPTY(vs->rs)) {
 		if (vs->s_svr) {
 			if (ISALIVE(vs->s_svr))
-				if (!ipvs_cmd(LVS_CMD_DEL_DEST
-					      , vs_group
-					      , vs
-					      , vs->s_svr))
+				if (!ipvs_cmd(LVS_CMD_DEL_DEST, vs_group, vs, vs->s_svr))
 					return 0;
 		} else if (!clear_service_rs(vs_group, vs, vs->rs))
 			return 0;
+		/* The above will handle Omega case for VS as well. */
 	}
 
 	if (!ipvs_cmd(LVS_CMD_DEL, vs_group, vs, NULL))
@@ -95,24 +129,27 @@ clear_services(void)
 		rs = ELEMENT_DATA(LIST_HEAD(vs->rs));
 		if (!clear_service_vs(check_data->vs_group, vs))
 			return 0;
-#ifdef _KRNL_2_2_
-		if (vs->nat_mask != HOST_NETMASK)
-			if (!ipfw_cmd(IP_FW_CMD_DEL, vs, rs))
-				return 0;
-#endif
 	}
 	return 1;
 }
 
 /* Set a realserver IPVS rules */
 static int
-init_service_rs(virtual_server * vs, list l)
+init_service_rs(virtual_server * vs)
 {
 	element e;
 	real_server *rs;
 
-	for (e = LIST_HEAD(l); e; ELEMENT_NEXT(e)) {
+	for (e = LIST_HEAD(vs->rs); e; ELEMENT_NEXT(e)) {
 		rs = ELEMENT_DATA(e);
+		/* In alpha mode, be pessimistic (or realistic?) and don't
+		 * add real servers into the VS pool. They will get there
+		 * later upon healthchecks recovery (if ever).
+		 */
+		if (vs->alpha) {
+			UNSET_ALIVE(rs);
+			continue;
+		}
 		if (!ISALIVE(rs)) {
 			if (!ipvs_cmd(LVS_CMD_ADD_DEST, check_data->vs_group, vs, rs))
 				return 0;
@@ -124,14 +161,6 @@ init_service_rs(virtual_server * vs, list l)
 				return 0;
 			SET_ALIVE(rs);
 		}
-#ifdef _KRNL_2_2_
-		/* if we have a /32 mask, we create one nat rules per
-		 * realserver.
-		 */
-		if (vs->nat_mask == HOST_NETMASK)
-			if (!ipfw_cmd(IP_FW_CMD_ADD, vs, rs))
-				return 0;
-#endif
 	}
 
 	return 1;
@@ -150,9 +179,12 @@ init_service_vs(virtual_server * vs)
 	}
 
 	/* Processing real server queue */
-	if (!LIST_ISEMPTY(vs->rs))
-		if (!init_service_rs(vs, vs->rs))
+	if (!LIST_ISEMPTY(vs->rs)) {
+		if (vs->alpha)
+			vs->quorum_state = DOWN;
+		if (!init_service_rs(vs))
 			return 0;
+	}
 	return 1;
 }
 
@@ -163,139 +195,184 @@ init_services(void)
 	element e;
 	list l = check_data->vs;
 	virtual_server *vs;
-	real_server *rs;
 
 	for (e = LIST_HEAD(l); e; ELEMENT_NEXT(e)) {
 		vs = ELEMENT_DATA(e);
-		rs = ELEMENT_DATA(LIST_HEAD(vs->rs));
 		if (!init_service_vs(vs))
 			return 0;
-#ifdef _KRNL_2_2_
-		/* work if all realserver ip address are in the
-		 * same network (it is assumed).
-		 */
-		if (vs->nat_mask != HOST_NETMASK)
-			if (!ipfw_cmd(IP_FW_CMD_ADD, vs, rs))
-				return 0;
-#endif
 	}
 	return 1;
 }
 
-/* Check if all rs for a specific vs are down */
-int
-all_realservers_down(virtual_server * vs)
+/* add or remove _alive_ real servers from a virtual server */
+void
+perform_quorum_state(virtual_server *vs, int add)
 {
 	element e;
-	real_server *svr;
+	real_server *rs;
 
+	if (LIST_ISEMPTY(vs->rs))
+		return;
+
+	log_message(LOG_INFO, "%s the pool for VS [%s]:%d"
+			    , add?"Adding alive servers to":"Removing alive servers from"
+			    , (vs->vsgname) ? vs->vsgname : inet_sockaddrtos(&vs->addr)
+			    , ntohs(inet_sockaddrport(&vs->addr)));
 	for (e = LIST_HEAD(vs->rs); e; ELEMENT_NEXT(e)) {
-		svr = ELEMENT_DATA(e);
-		if (ISALIVE(svr))
-			return 0;
+		rs = ELEMENT_DATA(e);
+		if (!ISALIVE(rs)) /* We only handle alive servers */
+			continue;
+		if (add)
+			rs->alive = 0;
+		ipvs_cmd(add?LVS_CMD_ADD_DEST:LVS_CMD_DEL_DEST, check_data->vs_group, vs, rs);
+		rs->alive = 1;
 	}
-	return 1;
+}
+
+/* set quorum state depending on current weight of real servers */
+void
+update_quorum_state(virtual_server * vs)
+{
+	char rsip[INET6_ADDRSTRLEN];
+
+	/* If we have just gained quorum, it's time to consider notify_up. */
+	if (vs->quorum_state == DOWN &&
+	    weigh_live_realservers(vs) >= vs->quorum + vs->hysteresis) {
+		vs->quorum_state = UP;
+		log_message(LOG_INFO, "Gained quorum %lu+%lu=%lu <= %u for VS [%s]:%d"
+				    , vs->quorum
+				    , vs->hysteresis
+				    , vs->quorum + vs->hysteresis
+				    , weigh_live_realservers(vs)
+				    , (vs->vsgname) ? vs->vsgname : inet_sockaddrtos(&vs->addr)
+				    , ntohs(inet_sockaddrport(&vs->addr)));
+		if (vs->s_svr && ISALIVE(vs->s_svr)) {
+			log_message(LOG_INFO, "Removing sorry server [%s]:%d from VS [%s]:%d"
+					    , inet_sockaddrtos2(&vs->s_svr->addr, rsip)
+					    , ntohs(inet_sockaddrport(&vs->s_svr->addr))
+					    , (vs->vsgname) ? vs->vsgname : inet_sockaddrtos(&vs->addr)
+					    , ntohs(inet_sockaddrport(&vs->addr)));
+
+			ipvs_cmd(LVS_CMD_DEL_DEST, check_data->vs_group, vs, vs->s_svr);
+			vs->s_svr->alive = 0;
+
+			/* Adding back alive real servers */
+			perform_quorum_state(vs, 1);
+		}
+		if (vs->quorum_up) {
+			log_message(LOG_INFO, "Executing [%s] for VS [%s]:%d"
+					    , vs->quorum_up
+					    , (vs->vsgname) ? vs->vsgname : inet_sockaddrtos(&vs->addr)
+					    , ntohs(inet_sockaddrport(&vs->addr)));
+			notify_exec(vs->quorum_up);
+		}
+		return;
+	}
+
+	/* If we have just lost quorum for the VS, we need to consider
+	 * VS notify_down and sorry_server cases
+	 */
+	if (vs->quorum_state == UP &&
+	    weigh_live_realservers(vs) < vs->quorum - vs->hysteresis) {
+		vs->quorum_state = DOWN;
+		log_message(LOG_INFO, "Lost quorum %lu-%lu=%lu > %u for VS [%s]:%d"
+				    , vs->quorum
+				    , vs->hysteresis
+				    , vs->quorum - vs->hysteresis
+				    , weigh_live_realservers(vs)
+				    , (vs->vsgname) ? vs->vsgname : inet_sockaddrtos(&vs->addr)
+				    , ntohs(inet_sockaddrport(&vs->addr)));
+		if (vs->quorum_down) {
+			log_message(LOG_INFO, "Executing [%s] for VS [%s]:%d"
+					    , vs->quorum_down
+					    , (vs->vsgname) ? vs->vsgname : inet_sockaddrtos(&vs->addr)
+					    , ntohs(inet_sockaddrport(&vs->addr)));
+			notify_exec(vs->quorum_down);
+		}
+		if (vs->s_svr) {
+			log_message(LOG_INFO, "Adding sorry server [%s]:%d to VS [%s]:%d"
+					    , inet_sockaddrtos2(&vs->s_svr->addr, rsip)
+					    , ntohs(inet_sockaddrport(&vs->s_svr->addr))
+					    , (vs->vsgname) ? vs->vsgname : inet_sockaddrtos(&vs->addr)
+					    , ntohs(inet_sockaddrport(&vs->addr)));
+
+			/* the sorry server is now up in the pool, we flag it alive */
+			ipvs_cmd(LVS_CMD_ADD_DEST, check_data->vs_group, vs, vs->s_svr);
+			vs->s_svr->alive = 1;
+
+			/* Remove remaining alive real servers */
+			perform_quorum_state(vs, 0);
+		}
+		return;
+	}
 }
 
 /* manipulate add/remove rs according to alive state */
 void
 perform_svr_state(int alive, virtual_server * vs, real_server * rs)
 {
-	char rsip[16], vsip[16];
+	char rsip[INET6_ADDRSTRLEN];
 
+	/*
+	 * | ISALIVE(rs) | alive | context
+	 * | 0           | 0     | first check failed under alpha mode, unreachable here
+	 * | 0           | 1     | RS went up, add it to the pool
+	 * | 1           | 0     | RS went down, remove it from the pool
+	 * | 1           | 1     | first check succeeded w/o alpha mode, unreachable here
+	 */
 	if (!ISALIVE(rs) && alive) {
-
-		/* adding a server to the vs pool, if sorry server is flagged alive,
-		 * we remove it from the vs pool.
-		 */
-		if (vs->s_svr) {
-			if (ISALIVE(vs->s_svr)) {
-				syslog(LOG_INFO,
-				       "Removing sorry server [%s:%d] from VS [%s:%d]",
-				       inet_ntoa2(SVR_IP(vs->s_svr), rsip)
-				       , ntohs(SVR_PORT(vs->s_svr))
-				       , (vs->vsgname) ? vs->vsgname : inet_ntoa2(SVR_IP(vs), vsip)
-				       , ntohs(SVR_PORT(vs)));
-
-				ipvs_cmd(LVS_CMD_DEL_DEST
-					 , check_data->vs_group
-					 , vs
-					 , vs->s_svr);
-				vs->s_svr->alive = 0;
-#ifdef _KRNL_2_2_
-				ipfw_cmd(IP_FW_CMD_DEL, vs, vs->s_svr);
-#endif
-			}
+		log_message(LOG_INFO, "%s service [%s]:%d to VS [%s]:%d"
+				    , (rs->inhibit) ? "Enabling" : "Adding"
+				    , inet_sockaddrtos2(&rs->addr, rsip)
+				    , ntohs(inet_sockaddrport(&rs->addr))
+				    , (vs->vsgname) ? vs->vsgname : inet_sockaddrtos(&vs->addr)
+				    , ntohs(inet_sockaddrport(&vs->addr)));
+		/* Add only if we have quorum or no sorry server */
+		if (vs->quorum_state == UP || !vs->s_svr || !ISALIVE(vs->s_svr)) {
+			ipvs_cmd(LVS_CMD_ADD_DEST, check_data->vs_group, vs, rs);
 		}
-
-		syslog(LOG_INFO, "%s service [%s:%d] to VS [%s:%d]",
-		       (rs->inhibit) ? "Enabling" : "Adding"
-		       , inet_ntoa2(SVR_IP(rs), rsip)
-		       , ntohs(SVR_PORT(rs))
-		       , (vs->vsgname) ? vs->vsgname : inet_ntoa2(SVR_IP(vs), vsip)
-		       , ntohs(SVR_PORT(vs)));
-		ipvs_cmd(LVS_CMD_ADD_DEST, check_data->vs_group, vs, rs);
 		rs->alive = alive;
 		if (rs->notify_up) {
-			syslog(LOG_INFO, "Executing [%s] for service [%s:%d]"
-			       " in VS [%s:%d]"
-			       , rs->notify_up
-			       , inet_ntoa2(SVR_IP(rs), rsip)
-			       , ntohs(SVR_PORT(rs))
-			       , (vs->vsgname) ? vs->vsgname : inet_ntoa2(SVR_IP(vs), vsip)
-			       , ntohs(SVR_PORT(vs)));
+			log_message(LOG_INFO, "Executing [%s] for service [%s]:%d in VS [%s]:%d"
+					    , rs->notify_up
+					    , inet_sockaddrtos2(&rs->addr, rsip)
+					    , ntohs(inet_sockaddrport(&rs->addr))
+					    , (vs->vsgname) ? vs->vsgname : inet_sockaddrtos(&vs->addr)
+					    , ntohs(inet_sockaddrport(&vs->addr)));
 			notify_exec(rs->notify_up);
 		}
-#ifdef _KRNL_2_2_
-		if (vs->nat_mask == HOST_NETMASK)
-			ipfw_cmd(IP_FW_CMD_ADD, vs, rs);
-#endif
 
-	} else {
+		/* We may have gained quorum */
+		update_quorum_state(vs);
+	}
 
-		syslog(LOG_INFO, "%s service [%s:%d] from VS [%s:%d]",
-		       (rs->inhibit) ? "Disabling" : "Removing"
-		       , inet_ntoa2(SVR_IP(rs), rsip)
-		       , ntohs(SVR_PORT(rs))
-		       , (vs->vsgname) ? vs->vsgname : inet_ntoa2(SVR_IP(vs), vsip)
-		       , ntohs(SVR_PORT(vs)));
+	if (ISALIVE(rs) && !alive) {
+		log_message(LOG_INFO, "%s service [%s]:%d from VS [%s]:%d"
+				    , (rs->inhibit) ? "Disabling" : "Removing"
+				    , inet_sockaddrtos2(&rs->addr, rsip)
+				    , ntohs(inet_sockaddrport(&rs->addr))
+				    , (vs->vsgname) ? vs->vsgname : inet_sockaddrtos(&vs->addr)
+				    , ntohs(inet_sockaddrport(&vs->addr)));
 
-		/* server is down, it is removed from the LVS realserver pool */
-		ipvs_cmd(LVS_CMD_DEL_DEST, check_data->vs_group, vs, rs);
+		/* server is down, it is removed from the LVS realserver pool
+		 * Remove only if we have quorum or no sorry server
+		 */
+		if (vs->quorum_state == UP || !vs->s_svr || !ISALIVE(vs->s_svr)) {
+			ipvs_cmd(LVS_CMD_DEL_DEST, check_data->vs_group, vs, rs);
+		}
 		rs->alive = alive;
 		if (rs->notify_down) {
-			syslog(LOG_INFO, "Executing [%s] for service [%s:%d]"
-			       " in VS [%s:%d]"
-			       , rs->notify_down
-			       , inet_ntoa2(SVR_IP(rs), rsip)
-			       , ntohs(SVR_PORT(rs))
-			       , (vs->vsgname) ? vs->vsgname : inet_ntoa2(SVR_IP(vs), vsip)
-			       , ntohs(SVR_PORT(vs)));
+			log_message(LOG_INFO, "Executing [%s] for service [%s]:%d in VS [%s]:%d"
+					    , rs->notify_down
+					    , inet_sockaddrtos2(&rs->addr, rsip)
+					    , ntohs(inet_sockaddrport(&rs->addr))
+					    , (vs->vsgname) ? vs->vsgname : inet_sockaddrtos(&vs->addr)
+					    , ntohs(inet_sockaddrport(&vs->addr)));
 			notify_exec(rs->notify_down);
 		}
 
-#ifdef _KRNL_2_2_
-		if (vs->nat_mask == HOST_NETMASK)
-			ipfw_cmd(IP_FW_CMD_DEL, vs, rs);
-#endif
-
-		/* if all the realserver pool is down, we add sorry server */
-		if (vs->s_svr && all_realservers_down(vs)) {
-			syslog(LOG_INFO,
-			       "Adding sorry server [%s:%d] to VS [%s:%d]",
-			       inet_ntoa2(SVR_IP(vs->s_svr), rsip)
-			       , ntohs(SVR_PORT(vs->s_svr))
-			       , (vs->vsgname) ? vs->vsgname : inet_ntoa2(SVR_IP(vs), vsip)
-			       , ntohs(SVR_PORT(vs)));
-
-			/* the sorry server is now up in the pool, we flag it alive */
-			ipvs_cmd(LVS_CMD_ADD_DEST, check_data->vs_group, vs, vs->s_svr);
-			vs->s_svr->alive = 1;
-
-#ifdef _KRNL_2_2_
-			ipfw_cmd(IP_FW_CMD_ADD, vs, vs->s_svr);
-#endif
-		}
+		/* We may have lost quorum */
+		update_quorum_state(vs);
 	}
 }
 
@@ -303,25 +380,28 @@ perform_svr_state(int alive, virtual_server * vs, real_server * rs)
 void
 update_svr_wgt(int weight, virtual_server * vs, real_server * rs)
 {
-	char rsip[16], vsip[16];
+	char rsip[INET6_ADDRSTRLEN];
 
 	if (weight != rs->weight) {
-		syslog(LOG_INFO, "Changing weight from %d to %d for %s service [%s:%d]"
-				 " of VS [%s:%d]"
-				 , rs->weight
-				 , weight
-				 , ISALIVE(rs) ? "active" : "inactive"
-				 , inet_ntoa2(SVR_IP(rs), rsip)
-				 , ntohs(SVR_PORT(rs))
-				 , (vs->vsgname) ? vs->vsgname : inet_ntoa2(SVR_IP(vs), vsip)
-				 , ntohs(SVR_PORT(vs)));
+		log_message(LOG_INFO, "Changing weight from %d to %d for %s service [%s]:%d of VS [%s]:%d"
+				    , rs->weight
+				    , weight
+				    , ISALIVE(rs) ? "active" : "inactive"
+				    , inet_sockaddrtos2(&rs->addr, rsip)
+				    , ntohs(inet_sockaddrport(&rs->addr))
+				    , (vs->vsgname) ? vs->vsgname : inet_sockaddrtos(&vs->addr)
+				    , ntohs(inet_sockaddrport(&vs->addr)));
 		rs->weight = weight;
 		/*
-		 * Have weight change take effect now only if rs is alive.
-		 * If not, it will take effect later when it becomes alive.
+		 * Have weight change take effect now only if rs is in
+		 * the pool and alive and the quorum is met (or if
+		 * there is no sorry server). If not, it will take
+		 * effect later when it becomes alive.
 		 */
-		if (ISALIVE(rs))
+		if (rs->set && ISALIVE(rs) &&
+		    (vs->quorum_state == UP || !vs->s_svr || !ISALIVE(vs->s_svr)))
 			ipvs_cmd(LVS_CMD_EDIT_DEST, check_data->vs_group, vs, rs);
+		update_quorum_state(vs);
 	}
 }
 
@@ -355,21 +435,27 @@ update_svr_checker_state(int alive, checker_id_t cid, virtual_server *vs, real_s
 	list l = rs->failed_checkers;
 	checker_id_t *id;
 
-	/* Handle alive state */
-	for (e = LIST_HEAD(l); e; ELEMENT_NEXT(e)) {
-		id = ELEMENT_DATA(e);
-		if (*id == cid) {
-			if (alive) {
+	/* Handle alive state. Depopulate failed_checkers and call
+	 * perform_svr_state() independently, letting the latter sort
+	 * things out itself.
+	 */
+	if (alive) {
+		/* Remove the succeeded check from failed_checkers list. */
+		for (e = LIST_HEAD(l); e; ELEMENT_NEXT(e)) {
+			id = ELEMENT_DATA(e);
+			if (*id == cid) {
 				free_list_element(l, e);
-				if (LIST_SIZE(l) == 0)
-					perform_svr_state(alive, vs, rs);
-			} 
-			return;
+				/* If we don't break, the next iteration will trigger
+				 * a SIGSEGV.
+				 */
+				break;
+			}
 		}
+		if (LIST_SIZE(l) == 0)
+			perform_svr_state(alive, vs, rs);
 	}
-
 	/* Handle not alive state */
-	if (!alive) {
+	else {
 		id = (checker_id_t *) MALLOC(sizeof(checker_id_t));
 		*id = cid;
 		list_add(l, id);
@@ -405,19 +491,18 @@ vsge_exist(virtual_server_group_entry *vsg_entry, list l)
 static int
 clear_diff_vsge(list old, list new, virtual_server * old_vs)
 {
-	element e;
 	virtual_server_group_entry *vsge;
+	element e;
 
 	for (e = LIST_HEAD(old); e; ELEMENT_NEXT(e)) {
 		vsge = ELEMENT_DATA(e);
 		if (!vsge_exist(vsge, new)) {
-			syslog(LOG_INFO, "VS [%s:%d:%d:%d] in group %s"
-			       " no longer exist\n" 
-			       , inet_ntop2(vsge->addr_ip)
-			       , ntohs(vsge->addr_port)
-			       , vsge->range
-			       , vsge->vfwmark
-			       , old_vs->vsgname);
+			log_message(LOG_INFO, "VS [%s:%d:%d:%d] in group %s no longer exist\n" 
+					    , inet_sockaddrtos(&vsge->addr)
+					    , ntohs(inet_sockaddrport(&vsge->addr))
+					    , vsge->range
+					    , vsge->vfwmark
+					    , old_vs->vsgname);
 
 			if (!ipvs_group_remove_entry(old_vs, vsge))
 				return 0;
@@ -465,13 +550,7 @@ vs_exist(virtual_server * old_vs)
 		vs = ELEMENT_DATA(e);
 		if (VS_ISEQ(old_vs, vs)) {
 			/* Check if group exist */
-			if ((vs->vsgname && !old_vs->vsgname) ||
-			    (!vs->vsgname && old_vs->vsgname))
-				return 0;
-
 			if (vs->vsgname) {
-				if (strcmp(vs->vsgname, old_vs->vsgname) != 0)
-					return 0;
 				vsg = ipvs_get_group_by_name(old_vs->vsgname,
 							    check_data->vs_group);
 				if (!vsg)
@@ -512,6 +591,7 @@ rs_exist(real_server * old_rs, list l)
 			 */
 			rs->alive = old_rs->alive;
 			rs->set = old_rs->set;
+			rs->weight = old_rs->weight;
 			return 1;
 		}
 	}
@@ -548,7 +628,7 @@ clear_diff_rs(virtual_server * old_vs)
 	list l = old_vs->rs;
 	list new = get_rs_list(old_vs);
 	real_server *rs;
-	char rsip[16], vsip[16];
+	char rsip[INET6_ADDRSTRLEN];
 
 	/* If old vs didn't own rs then nothing return */
 	if (LIST_ISEMPTY(l))
@@ -558,14 +638,14 @@ clear_diff_rs(virtual_server * old_vs)
 		rs = ELEMENT_DATA(e);
 		if (!rs_exist(rs, new)) {
 			/* Reset inhibit flag to delete inhibit entries */
-			syslog(LOG_INFO, "service [%s:%d] no longer exist"
-			       , inet_ntoa2(SVR_IP(rs), rsip)
-			       , ntohs(SVR_PORT(rs)));
-			syslog(LOG_INFO, "Removing service [%s:%d] from VS [%s:%d]"
-			       , inet_ntoa2(SVR_IP(rs), rsip)
-			       , ntohs(SVR_PORT(rs))
-			       , inet_ntoa2(SVR_IP(old_vs), vsip)
-			       , ntohs(SVR_PORT(old_vs)));
+			log_message(LOG_INFO, "service [%s]:%d no longer exist"
+					    , inet_sockaddrtos(&rs->addr)
+					    , ntohs(inet_sockaddrport(&rs->addr)));
+			log_message(LOG_INFO, "Removing service [%s]:%d from VS [%s]:%d"
+					    , inet_sockaddrtos2(&rs->addr, rsip)
+					    , ntohs(inet_sockaddrport(&rs->addr))
+					    , (old_vs->vsgname) ? old_vs->vsgname : inet_sockaddrtos(&old_vs->addr)
+					    , ntohs(inet_sockaddrport(&old_vs->addr)));
 			rs->inhibit = 0;
 			if (!ipvs_cmd(LVS_CMD_DEL_DEST, check_data->vs_group, old_vs, rs))
 				return 0;
@@ -597,12 +677,12 @@ clear_diff_services(void)
 		 */
 		if (!vs_exist(vs)) {
 			if (vs->vsgname)
-				syslog(LOG_INFO, "Removing Virtual Server Group [%s]"
-				       , vs->vsgname);
+				log_message(LOG_INFO, "Removing Virtual Server Group [%s]"
+						    , vs->vsgname);
 			else
-				syslog(LOG_INFO, "Removing Virtual Server [%s:%d]"
-				       , inet_ntop2(vs->addr_ip)
-				       , ntohs(vs->addr_port));
+				log_message(LOG_INFO, "Removing Virtual Server [%s]:%d"
+						    , inet_sockaddrtos(&vs->addr)
+						    , ntohs(inet_sockaddrport(&vs->addr)));
 
 			/* Clear VS entry */
 			if (!clear_service_vs(old_check_data->vs_group, vs))

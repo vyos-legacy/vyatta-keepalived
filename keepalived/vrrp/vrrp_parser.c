@@ -7,8 +7,6 @@
  *              data structure representation the conf file representing
  *              the loadbalanced server pool.
  *  
- * Version:     $Id: vrrp_parser.c,v 1.1.15 2007/09/15 04:07:41 acassen Exp $
- * 
  * Author:      Alexandre Cassen, <acassen@linux-vs.org>
  *              
  *              This program is distributed in the hope that it will be useful,
@@ -21,7 +19,7 @@
  *              as published by the Free Software Foundation; either version
  *              2 of the License, or (at your option) any later version.
  *
- * Copyright (C) 2001-2007 Alexandre Cassen, <acassen@freebox.fr>
+ * Copyright (C) 2001-2011 Alexandre Cassen, <acassen@linux-vs.org>
  */
 
 #include "vrrp_parser.h"
@@ -32,6 +30,7 @@
 #include "vrrp.h"
 #include "global_data.h"
 #include "global_parser.h"
+#include "logger.h"
 #include "parser.h"
 #include "memory.h"
 
@@ -101,6 +100,15 @@ vrrp_handler(vector strvec)
 	alloc_vrrp(VECTOR_SLOT(strvec, 1));
 }
 static void
+vrrp_native_ipv6_handler(vector strvec)
+{
+	vrrp_rt *vrrp = LIST_TAIL_DATA(vrrp_data->vrrp);
+	vrrp->family = AF_INET6;
+
+	if (vrrp->auth_type != VRRP_AUTH_NONE)
+		vrrp->auth_type = VRRP_AUTH_NONE;
+}
+static void
 vrrp_state_handler(vector strvec)
 {
 	char *str = VECTOR_SLOT(strvec, 1);
@@ -152,8 +160,8 @@ vrrp_vrid_handler(vector strvec)
 	vrrp->vrid = atoi(VECTOR_SLOT(strvec, 1));
 
 	if (VRRP_IS_BAD_VID(vrrp->vrid)) {
-		syslog(LOG_INFO, "VRRP Error : VRID not valid !\n");
-		syslog(LOG_INFO,
+		log_message(LOG_INFO, "VRRP Error : VRID not valid !\n");
+		log_message(LOG_INFO,
 		       "             must be between 1 & 255. reconfigure !\n");
 	} else
 		alloc_vrrp_bucket(vrrp);
@@ -165,11 +173,12 @@ vrrp_prio_handler(vector strvec)
 	vrrp->effective_priority = vrrp->base_priority = atoi(VECTOR_SLOT(strvec, 1));
 
 	if (VRRP_IS_BAD_PRIORITY(vrrp->base_priority)) {
-		syslog(LOG_INFO, "VRRP Error : Priority not valid !\n");
-		syslog(LOG_INFO,
+		log_message(LOG_INFO, "VRRP Error : Priority not valid !\n");
+		log_message(LOG_INFO,
 		       "             must be between 1 & 255. reconfigure !\n");
-		syslog(LOG_INFO, "             Using default value : 100\n");
-		vrrp->effective_priority = vrrp->base_priority = 100;
+		log_message(LOG_INFO,
+			    "             Using default value : %d\n", VRRP_PRIO_DFL);
+		vrrp->effective_priority = vrrp->base_priority = VRRP_PRIO_DFL;
 	}
 }
 static void
@@ -179,10 +188,10 @@ vrrp_adv_handler(vector strvec)
 	vrrp->adver_int = atoi(VECTOR_SLOT(strvec, 1));
 
 	if (VRRP_IS_BAD_ADVERT_INT(vrrp->adver_int)) {
-		syslog(LOG_INFO, "VRRP Error : Advert interval not valid !\n");
-		syslog(LOG_INFO,
+		log_message(LOG_INFO, "VRRP Error : Advert interval not valid !\n");
+		log_message(LOG_INFO,
 		       "             must be between less than 1sec.\n");
-		syslog(LOG_INFO, "             Using default value : 1sec\n");
+		log_message(LOG_INFO, "             Using default value : 1sec\n");
 		vrrp->adver_int = 1;
 	}
 	vrrp->adver_int *= TIMER_HZ;
@@ -194,8 +203,8 @@ vrrp_debug_handler(vector strvec)
 	vrrp->debug = atoi(VECTOR_SLOT(strvec, 1));
 
 	if (VRRP_IS_BAD_DEBUG_INT(vrrp->debug)) {
-		syslog(LOG_INFO, "VRRP Error : Debug interval not valid !\n");
-		syslog(LOG_INFO, "             must be between 0-4\n");
+		log_message(LOG_INFO, "VRRP Error : Debug interval not valid !\n");
+		log_message(LOG_INFO, "             must be between 0-4\n");
 		vrrp->debug = 0;
 	}
 }
@@ -218,8 +227,8 @@ vrrp_preempt_delay_handler(vector strvec)
 	vrrp->preempt_delay = atoi(VECTOR_SLOT(strvec, 1));
 
 	if (VRRP_IS_BAD_PREEMPT_DELAY(vrrp->preempt_delay)) {
-		syslog(LOG_INFO, "VRRP Error : Preempt_delay not valid !\n");
-		syslog(LOG_INFO, "             must be between 0-%d\n",
+		log_message(LOG_INFO, "VRRP Error : Preempt_delay not valid !\n");
+		log_message(LOG_INFO, "             must be between 0-%d\n",
 		       TIMER_MAX_SEC);
 		vrrp->preempt_delay = 0;
 	}
@@ -285,9 +294,9 @@ vrrp_auth_type_handler(vector strvec)
 	vrrp_rt *vrrp = LIST_TAIL_DATA(vrrp_data->vrrp);
 	char *str = VECTOR_SLOT(strvec, 1);
 
-	if (!strcmp(str, "AH"))
+	if (!strcmp(str, "AH") && vrrp->family == AF_INET)
 		vrrp->auth_type = VRRP_AUTH_AH;
-	else
+	else if (!strcmp(str, "PASS") && vrrp->family == AF_INET)
 		vrrp->auth_type = VRRP_AUTH_PASS;
 }
 static void
@@ -296,10 +305,13 @@ vrrp_auth_pass_handler(vector strvec)
 	vrrp_rt *vrrp = LIST_TAIL_DATA(vrrp_data->vrrp);
 	char *str = VECTOR_SLOT(strvec, 1);
 	int max_size = sizeof (vrrp->auth_data);
-	int size;
+	int str_len = strlen(str);
 
-	size = (strlen(str) >= max_size) ? max_size : strlen(str);
-	memcpy(vrrp->auth_data, str, size);
+	if (str_len > max_size)
+		str_len = max_size;
+
+	memset(vrrp->auth_data, 0, max_size);
+	memcpy(vrrp->auth_data, str, str_len);
 }
 static void
 vrrp_vip_handler(vector strvec)
@@ -323,11 +335,11 @@ vrrp_vip_handler(vector strvec)
 			if (VECTOR_SIZE(vec)) {
 				nbvip++;
 				if (nbvip > VRRP_MAX_VIP) {
-					syslog(LOG_INFO,
+					log_message(LOG_INFO,
 					       "VRRP_Instance(%s) "
 					       "trunc to the first %d VIPs.",
 					       vrrp->iname, VRRP_MAX_VIP);
-					syslog(LOG_INFO,
+					log_message(LOG_INFO,
 					       "  => Declare others VIPs into"
 					       " the excluded vip block");
 				} else
@@ -373,6 +385,22 @@ vrrp_vscript_weight_handler(vector strvec)
 	vrrp_script *vscript = LIST_TAIL_DATA(vrrp_data->vrrp_script);
 	vscript->weight = atoi(VECTOR_SLOT(strvec, 1));
 }
+static void
+vrrp_vscript_rise_handler(vector strvec)
+{
+	vrrp_script *vscript = LIST_TAIL_DATA(vrrp_data->vrrp_script);
+	vscript->rise = atoi(VECTOR_SLOT(strvec, 1));
+	if (vscript->rise < 1)
+		vscript->rise = 1;
+}
+static void
+vrrp_vscript_fall_handler(vector strvec)
+{
+	vrrp_script *vscript = LIST_TAIL_DATA(vrrp_data->vrrp_script);
+	vscript->fall = atoi(VECTOR_SLOT(strvec, 1));
+	if (vscript->fall < 1)
+		vscript->fall = 1;
+}
 
 vector
 vrrp_init_keywords(void)
@@ -393,6 +421,7 @@ vrrp_init_keywords(void)
 	install_keyword("notify", &vrrp_gnotify_handler);
 	install_keyword("smtp_alert", &vrrp_gsmtp_handler);
 	install_keyword_root("vrrp_instance", &vrrp_handler);
+	install_keyword("native_ipv6", &vrrp_native_ipv6_handler);
 	install_keyword("state", &vrrp_state_handler);
 	install_keyword("interface", &vrrp_int_handler);
 	install_keyword("dont_track_primary", &vrrp_dont_track_handler);
@@ -426,6 +455,8 @@ vrrp_init_keywords(void)
 	install_keyword("script", &vrrp_vscript_script_handler);
 	install_keyword("interval", &vrrp_vscript_interval_handler);
 	install_keyword("weight", &vrrp_vscript_weight_handler);
+	install_keyword("rise", &vrrp_vscript_rise_handler);
+	install_keyword("fall", &vrrp_vscript_fall_handler);
 
 	return keywords;
 }

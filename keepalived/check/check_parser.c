@@ -7,8 +7,6 @@
  *              data structure representation the conf file representing
  *              the loadbalanced server pool.
  *  
- * Version:     $Id: check_parser.c,v 1.1.15 2007/09/15 04:07:41 acassen Exp $
- * 
  * Author:      Alexandre Cassen, <acassen@linux-vs.org>
  *              
  *              This program is distributed in the hope that it will be useful,
@@ -21,7 +19,7 @@
  *              as published by the Free Software Foundation; either version
  *              2 of the License, or (at your option) any later version.
  *
- * Copyright (C) 2001-2007 Alexandre Cassen, <acassen@freebox.fr>
+ * Copyright (C) 2001-2011 Alexandre Cassen, <acassen@linux-vs.org>
  */
 
 #include "check_parser.h"
@@ -29,9 +27,11 @@
 #include "check_api.h"
 #include "global_data.h"
 #include "global_parser.h"
+#include "logger.h"
 #include "parser.h"
 #include "memory.h"
 #include "utils.h"
+#include "ipwrapper.h"
 
 /* SSL handlers */
 static void
@@ -98,23 +98,14 @@ lbkind_handler(vector strvec)
 	virtual_server *vs = LIST_TAIL_DATA(check_data->vs);
 	char *str = VECTOR_SLOT(strvec, 1);
 
-#ifdef _KRNL_2_2_
-	if (!strcmp(str, "NAT"))
-		vs->loadbalancing_kind = 0;
-	else if (!strcmp(str, "DR"))
-		vs->loadbalancing_kind = IP_MASQ_F_VS_DROUTE;
-	else if (!strcmp(str, "TUN"))
-		vs->loadbalancing_kind = IP_MASQ_F_VS_TUNNEL;
-#else
 	if (!strcmp(str, "NAT"))
 		vs->loadbalancing_kind = IP_VS_CONN_F_MASQ;
 	else if (!strcmp(str, "DR"))
 		vs->loadbalancing_kind = IP_VS_CONN_F_DROUTE;
 	else if (!strcmp(str, "TUN"))
 		vs->loadbalancing_kind = IP_VS_CONN_F_TUNNEL;
-#endif
 	else
-		syslog(LOG_INFO, "PARSER : unknown [%s] routing method.", str);
+		log_message(LOG_INFO, "PARSER : unknown [%s] routing method.", str);
 }
 static void
 natmask_handler(vector strvec)
@@ -139,7 +130,10 @@ static void
 pgr_handler(vector strvec)
 {
 	virtual_server *vs = LIST_TAIL_DATA(check_data->vs);
-	inet_ston(VECTOR_SLOT(strvec, 1), &vs->granularity_persistence);
+	if (vs->addr.ss_family == AF_INET6)
+		vs->granularity_persistence = atoi(VECTOR_SLOT(strvec, 1));
+	else
+		inet_ston(VECTOR_SLOT(strvec, 1), &vs->granularity_persistence);
 }
 static void
 proto_handler(vector strvec)
@@ -180,6 +174,7 @@ weight_handler(vector strvec)
 	virtual_server *vs = LIST_TAIL_DATA(check_data->vs);
 	real_server *rs = LIST_TAIL_DATA(vs->rs);
 	rs->weight = atoi(VECTOR_SLOT(strvec, 1));
+	rs->iweight = rs->weight;
 }
 #ifdef _KRNL_2_6_
 static void
@@ -218,6 +213,58 @@ notify_down_handler(vector strvec)
 	real_server *rs = LIST_TAIL_DATA(vs->rs);
 	rs->notify_down = set_value(strvec);
 }
+static void
+alpha_handler(vector strvec)
+{
+	virtual_server *vs = LIST_TAIL_DATA(check_data->vs);
+	vs->alpha = 1;
+	vs->quorum_state = DOWN;
+}
+static void
+omega_handler(vector strvec)
+{
+	virtual_server *vs = LIST_TAIL_DATA(check_data->vs);
+	vs->omega = 1;
+}
+static void
+quorum_up_handler(vector strvec)
+{
+	virtual_server *vs = LIST_TAIL_DATA(check_data->vs);
+	vs->quorum_up = set_value(strvec);
+}
+static void
+quorum_down_handler(vector strvec)
+{
+	virtual_server *vs = LIST_TAIL_DATA(check_data->vs);
+	vs->quorum_down = set_value(strvec);
+}
+static void
+quorum_handler(vector strvec)
+{
+	virtual_server *vs = LIST_TAIL_DATA(check_data->vs);
+	long tmp = atol (VECTOR_SLOT(strvec, 1));
+	if (tmp < 1) {
+		log_message(LOG_ERR, "Condition not met: Quorum >= 1");
+		log_message(LOG_ERR, "Ignoring requested value %s, using 1 instead",
+		  (char *) VECTOR_SLOT(strvec, 1));
+		tmp = 1;
+	}
+	vs->quorum = tmp;
+}
+static void
+hysteresis_handler(vector strvec)
+{
+	virtual_server *vs = LIST_TAIL_DATA(check_data->vs);
+	long tmp = atol (VECTOR_SLOT(strvec, 1));
+	if (tmp < 0 || tmp >= vs->quorum) {
+		log_message(LOG_ERR, "Condition not met: 0 <= Hysteresis <= Quorum - 1");
+		log_message(LOG_ERR, "Ignoring requested value %s, using 0 instead",
+		       (char *) VECTOR_SLOT(strvec, 1));
+		log_message(LOG_ERR, "Hint: try defining hysteresis after quorum");
+		tmp = 0;
+	}
+	vs->hysteresis = tmp;
+}
 
 vector
 check_init_keywords(void)
@@ -246,6 +293,14 @@ check_init_keywords(void)
 	install_keyword("protocol", &proto_handler);
 	install_keyword("ha_suspend", &hasuspend_handler);
 	install_keyword("virtualhost", &virtualhost_handler);
+
+	/* Pool regression detection and handling. */
+	install_keyword("alpha", &alpha_handler);
+	install_keyword("omega", &omega_handler);
+	install_keyword("quorum_up", &quorum_up_handler);
+	install_keyword("quorum_down", &quorum_down_handler);
+	install_keyword("quorum", &quorum_handler);
+	install_keyword("hysteresis", &hysteresis_handler);
 
 	/* Real server mapping */
 	install_keyword("sorry_server", &ssvr_handler);

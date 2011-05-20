@@ -5,7 +5,7 @@
  *
  * Part:        http.c include file.
  *
- * Version:     $Id: http.h,v 1.0.0 2002/11/20 21:34:18 acassen Exp $
+ * Version:     $Id: http.h,v 1.1.16 2009/02/14 03:25:07 acassen Exp $
  *
  * Authors:     Alexandre Cassen, <acassen@linux-vs.org>
  *
@@ -19,7 +19,7 @@
  *              as published by the Free Software Foundation; either version
  *              2 of the License, or (at your option) any later version.
  *
- * Copyright (C) 2001-2007 Alexandre Cassen, <acassen@freebox.fr>
+ * Copyright (C) 2001-2011 Alexandre Cassen, <acassen@linux-vs.org>
  */
 
 #ifndef _HTTP_H
@@ -55,9 +55,9 @@
 #define HTML_MD5_FINAL    DELIM_BEGIN" HTML MD5 final resulting "DELIM_END
 
 /* Define prototypes */
-extern int epilog(thread * thread_obj);
-extern int finalize(thread * thread_obj);
-extern int http_process_stream(SOCK * sock_obj, int r);
-extern int http_request_thread(thread * thread_obj);
+extern int epilog(thread_t *);
+extern int finalize(thread_t *);
+extern int http_process_stream(SOCK *, int);
+extern int http_request_thread(thread_t *);
 
 #endif

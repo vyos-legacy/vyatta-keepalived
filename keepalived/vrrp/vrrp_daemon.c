@@ -5,8 +5,6 @@
  *
  * Part:        VRRP child process handling.
  *
- * Version:     $Id: vrrp_daemon.c,v 1.1.15 2007/09/15 04:07:41 acassen Exp $
- *
  * Author:      Alexandre Cassen, <acassen@linux-vs.org>
  *
  *              This program is distributed in the hope that it will be useful,
@@ -19,13 +17,14 @@
  *              as published by the Free Software Foundation; either version
  *              2 of the License, or (at your option) any later version.
  *
- * Copyright (C) 2001-2007 Alexandre Cassen, <acassen@freebox.fr>
+ * Copyright (C) 2001-2011 Alexandre Cassen, <acassen@linux-vs.org>
  */
 
 #include "vrrp_daemon.h"
 #include "vrrp_scheduler.h"
 #include "vrrp_if.h"
 #include "vrrp_arp.h"
+#include "vrrp_ndisc.h"
 #include "vrrp_netlink.h"
 #include "vrrp_ipaddress.h"
 #include "vrrp_iproute.h"
@@ -35,6 +34,7 @@
 #include "global_data.h"
 #include "pidfile.h"
 #include "daemon.h"
+#include "logger.h"
 #include "signals.h"
 #ifdef _WITH_LVS_
   #include "ipvswrapper.h"
@@ -44,24 +44,29 @@
 #include "memory.h"
 #include "parser.h"
 
+extern char *vrrp_pidfile;
+
 /* Daemon stop sequence */
 static void
 stop_vrrp(void)
 {
 	/* Destroy master thread */
+	signal_handler_destroy();
+	free_vrrp_sockpool(vrrp_data);
 	thread_destroy_master(master);
 
 	/* Clear static entries */
 	netlink_rtlist_ipv4(vrrp_data->static_routes, IPROUTE_DEL);
-	netlink_iplist_ipv4(vrrp_data->static_addresses, IPADDRESS_DEL);
+	netlink_iplist(vrrp_data->static_addresses, IPADDRESS_DEL);
 
 	if (!(debug & 8))
 		shutdown_vrrp_instances();
 	free_interface_queue();
 	gratuitous_arp_close();
+	ndisc_close();
 
 	/* Stop daemon */
-	pidfile_rm(VRRP_PID_FILE);
+	pidfile_rm(vrrp_pidfile);
 
 	/* Clean data */
 	free_global_data(data);
@@ -93,6 +98,7 @@ start_vrrp(void)
 	init_interface_queue();
 	kernel_netlink_init();
 	gratuitous_arp_init();
+	ndisc_init();
 
 #ifdef _WITH_LVS_
 	/* Initialize ipvs related */
@@ -112,6 +118,7 @@ start_vrrp(void)
 		clear_diff_saddresses();
 		clear_diff_sroutes();
 		clear_diff_vrrp();
+		clear_diff_script();
 	}
 
 	/* Complete VRRP initialization */
@@ -121,10 +128,10 @@ start_vrrp(void)
 	}
 
 	/* Post initializations */
-	syslog(LOG_INFO, "Configuration is using : %lu Bytes", mem_allocated);
+	log_message(LOG_INFO, "Configuration is using : %lu Bytes", mem_allocated);
 
 	/* Set static entries */
-	netlink_iplist_ipv4(vrrp_data->static_addresses, IPADDRESS_ADD);
+	netlink_iplist(vrrp_data->static_addresses, IPADDRESS_ADD);
 	netlink_rtlist_ipv4(vrrp_data->static_routes, IPROUTE_ADD);
 
 	/* Dump configuration */
@@ -133,17 +140,57 @@ start_vrrp(void)
 		dump_vrrp_data(vrrp_data);
 	}
 
+	/* Initialize linkbeat */
+	init_interface_linkbeat();
+
 	/* Init & start the VRRP packet dispatcher */
 	thread_add_event(master, vrrp_dispatcher_init, NULL,
 			 VRRP_DISPATCHER);
 }
 
 /* Reload handler */
+int reload_vrrp_thread(thread_t * thread);
+void
+sighup_vrrp(void *v, int sig)
+{
+	log_message(LOG_INFO, "Reloading VRRP child process(%d) on signal",
+		    getpid());
+	thread_add_event(master, reload_vrrp_thread, NULL, 0);
+}
+
+/* Terminate handler */
+void
+sigend_vrrp(void *v, int sig)
+{
+	log_message(LOG_INFO, "Terminating VRRP child process on signal");
+	if (master)
+		thread_add_terminate_event(master);
+}
+
+/* VRRP Child signal handling */
+void
+vrrp_signal_init(void)
+{
+	signal_handler_init();
+	signal_set(SIGHUP, sighup_vrrp, NULL);
+	signal_set(SIGINT, sigend_vrrp, NULL);
+	signal_set(SIGTERM, sigend_vrrp, NULL);
+	signal_ignore(SIGPIPE);
+}
+
+/* Reload thread */
 int
-reload_vrrp_thread(thread * thread_obj)
+reload_vrrp_thread(thread_t * thread)
 {
 	/* set the reloading flag */
 	SET_RELOAD;
+
+	/* Close sockpool */
+	free_vrrp_sockpool(vrrp_data);
+
+	/* Signal handling */
+	signal_reset();
+	signal_handler_destroy();
 
 	/* Destroy master thread */
 	thread_destroy_master(master);
@@ -152,6 +199,7 @@ reload_vrrp_thread(thread * thread_obj)
 	free_interface_queue();
 	free_vrrp_buffer();
 	gratuitous_arp_close();
+	ndisc_close();
 
 	/* Save previous conf data */
 	old_vrrp_data = vrrp_data;
@@ -164,6 +212,8 @@ reload_vrrp_thread(thread * thread_obj)
 
 	/* Reload the conf */
 	mem_allocated = 0;
+	vrrp_signal_init();
+	signal_set(SIGCHLD, thread_child_handler, master);
 	start_vrrp();
 
 	/* free backup data */
@@ -173,54 +223,24 @@ reload_vrrp_thread(thread * thread_obj)
 	return 0;
 }
 
-/* Reload handler */
-void
-sighup_vrrp(int sig)
-{
-	syslog(LOG_INFO, "Reloading VRRP child process(%d) on signal",
-	       vrrp_child);
-	thread_add_event(master, reload_vrrp_thread, NULL, 0);
-}
-
-/* Terminate handler */
-void
-sigend_vrrp(int sig)
-{
-	syslog(LOG_INFO, "Terminating VRRP child process on signal");
-	if (master)
-		thread_add_terminate_event(master);
-}
-
-/* VRRP Child signal handling */
-void
-vrrp_signal_init(void)
-{
-	signal_handler_init();
-	signal_set(SIGHUP, sighup_vrrp);
-	signal_set(SIGINT, sigend_vrrp);
-	signal_set(SIGTERM, sigend_vrrp);
-	signal_ignore(SIGPIPE);
-	signal_noignore_sigchld();
-}
-
 /* VRRP Child respawning thread */
 int
-vrrp_respawn_thread(thread * thread_obj)
+vrrp_respawn_thread(thread_t * thread)
 {
 	pid_t pid;
 
 	/* Fetch thread args */
-	pid = THREAD_CHILD_PID(thread_obj);
+	pid = THREAD_CHILD_PID(thread);
 
 	/* Restart respawning thread */
-	if (thread_obj->type == THREAD_CHILD_TIMEOUT) {
+	if (thread->type == THREAD_CHILD_TIMEOUT) {
 		thread_add_child(master, vrrp_respawn_thread, NULL,
 				 pid, RESPAWN_TIMER);
 		return 0;
 	}
 
 	/* We catch a SIGCHLD, handle it */
-	syslog(LOG_INFO, "VRRP child process(%d) died: Respawning", pid);
+	log_message(LOG_INFO, "VRRP child process(%d) died: Respawning", pid);
 	start_vrrp_child();
 	return 0;
 }
@@ -231,25 +251,18 @@ start_vrrp_child(void)
 {
 #ifndef _DEBUG_
 	pid_t pid;
-#endif
+	int ret;
 
-	/* Dont start if pid is already running */
-	if (vrrp_running()) {
-		syslog(LOG_INFO, "VRRP child process already running");
-		return -1;
-	}
-
-#ifndef _DEBUG_
 	/* Initialize child process */
 	pid = fork();
 
 	if (pid < 0) {
-		syslog(LOG_INFO, "VRRP child process: fork error(%s)"
+		log_message(LOG_INFO, "VRRP child process: fork error(%s)"
 			       , strerror(errno));
 		return -1;
 	} else if (pid) {
 		vrrp_child = pid;
-		syslog(LOG_INFO, "Starting VRRP child process, pid=%d"
+		log_message(LOG_INFO, "Starting VRRP child process, pid=%d"
 			       , pid);
 
 		/* Start respawning thread */
@@ -263,22 +276,28 @@ start_vrrp_child(void)
 		(log_facility==LOG_DAEMON) ? LOG_LOCAL1 : log_facility);
 
 	/* Child process part, write pidfile */
-	if (!pidfile_write(VRRP_PID_FILE, getpid())) {
+	if (!pidfile_write(vrrp_pidfile, getpid())) {
 		/* Fatal error */
-		syslog(LOG_INFO, "VRRP child process: cannot write pidfile");
+		log_message(LOG_INFO, "VRRP child process: cannot write pidfile");
 		exit(0);
 	}
 
 	/* Create the new master thread */
+	signal_handler_destroy();
 	thread_destroy_master(master);
 	master = thread_make_master();
 
 	/* change to / dir */
-	chdir("/");
+	ret = chdir("/");
 
 	/* Set mask */
 	umask(0);
 #endif
+
+	/* If last process died during a reload, we can get there and we
+	 * don't want to loop again, because we're not reloading anymore.
+	 */
+	UNSET_RELOAD;
 
 	/* Signal handling initialization */
 	vrrp_signal_init();

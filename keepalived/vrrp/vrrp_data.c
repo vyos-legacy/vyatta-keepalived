@@ -5,8 +5,6 @@
  *
  * Part:        Dynamic data structure definition.
  *
- * Version:     $Id: vrrp_data.c,v 1.1.15 2007/09/15 04:07:41 acassen Exp $
- *
  * Author:      Alexandre Cassen, <acassen@linux-vs.org>
  *
  *              This program is distributed in the hope that it will be useful,
@@ -19,7 +17,7 @@
  *              as published by the Free Software Foundation; either version
  *              2 of the License, or (at your option) any later version.
  *
- * Copyright (C) 2001-2007 Alexandre Cassen, <acassen@freebox.fr>
+ * Copyright (C) 2001-2011 Alexandre Cassen, <acassen@linux-vs.org>
  */
 
 #include "vrrp_data.h"
@@ -29,6 +27,7 @@
 #include "vrrp.h"
 #include "memory.h"
 #include "utils.h"
+#include "logger.h"
 
 /* global vars */
 vrrp_conf_data *vrrp_data = NULL;
@@ -75,26 +74,26 @@ dump_vgroup(void *data)
 	int i;
 	char *str;
 
-	syslog(LOG_INFO, " VRRP Sync Group = %s, %s", vgroup->gname,
+	log_message(LOG_INFO, " VRRP Sync Group = %s, %s", vgroup->gname,
 	       (vgroup->state == VRRP_STATE_MAST) ? "MASTER" : "BACKUP");
 	for (i = 0; i < VECTOR_SIZE(vgroup->iname); i++) {
 		str = VECTOR_SLOT(vgroup->iname, i);
-		syslog(LOG_INFO, "   monitor = %s", str);
+		log_message(LOG_INFO, "   monitor = %s", str);
 	}
 	if (vgroup->script_backup)
-		syslog(LOG_INFO, "   Backup state transition script = %s",
+		log_message(LOG_INFO, "   Backup state transition script = %s",
 		       vgroup->script_backup);
 	if (vgroup->script_master)
-		syslog(LOG_INFO, "   Master state transition script = %s",
+		log_message(LOG_INFO, "   Master state transition script = %s",
 		       vgroup->script_master);
 	if (vgroup->script_fault)
-		syslog(LOG_INFO, "   Fault state transition script = %s",
+		log_message(LOG_INFO, "   Fault state transition script = %s",
 		       vgroup->script_fault);
 	if (vgroup->script)
-		syslog(LOG_INFO, "   Generic state transition script = '%s'",
+		log_message(LOG_INFO, "   Generic state transition script = '%s'",
 		       vgroup->script);
 	if (vgroup->smtp_alert)
-		syslog(LOG_INFO, "   Using smtp notification");
+		log_message(LOG_INFO, "   Using smtp notification");
 }
 
 static void
@@ -112,45 +111,50 @@ dump_vscript(void *data)
 	vrrp_script *vscript = data;
 	char *str;
 
-	syslog(LOG_INFO, " VRRP Script = %s", vscript->sname);
-	syslog(LOG_INFO, "   Command = %s", vscript->script);
-	syslog(LOG_INFO, "   Interval = %d sec", vscript->interval / TIMER_HZ);
-	syslog(LOG_INFO, "   Weight = %d", vscript->weight);
+	log_message(LOG_INFO, " VRRP Script = %s", vscript->sname);
+	log_message(LOG_INFO, "   Command = %s", vscript->script);
+	log_message(LOG_INFO, "   Interval = %d sec", vscript->interval / TIMER_HZ);
+	log_message(LOG_INFO, "   Weight = %d", vscript->weight);
+	log_message(LOG_INFO, "   Rise = %d", vscript->rise);
+	log_message(LOG_INFO, "   Full = %d", vscript->fall);
 
 	switch (vscript->result) {
 	case VRRP_SCRIPT_STATUS_INIT:
 		str = "INIT"; break;
-	case VRRP_SCRIPT_STATUS_NONE:
-		str = "BAD"; break;
-	case VRRP_SCRIPT_STATUS_GOOD:
-		str = "GOOD"; break;
+	case VRRP_SCRIPT_STATUS_INIT_GOOD:
+		str = "INIT/GOOD"; break;
 	case VRRP_SCRIPT_STATUS_DISABLED:
-	default:
 		str = "DISABLED"; break;
+	default:
+		str = (vscript->result >= vscript->rise) ? "GOOD" : "BAD";
 	}
-	syslog(LOG_INFO, "   Status = %s", str);
+	log_message(LOG_INFO, "   Status = %s", str);
 }
 
 /* Socket pool functions */
 static void
-free_sock(void *sock_data_obj)
+free_sock(void *sock_data)
 {
-	sock *sock_obj = sock_data_obj;
-	interface *ifp = if_get_by_ifindex(sock_obj->ifindex);
-	if_leave_vrrp_group(sock_obj->fd_in, ifp);
-	close(sock_obj->fd_out);
-	FREE(sock_data_obj);
+	sock_t *sock = sock_data;
+	interface *ifp;
+	if (sock->fd_in > 0) {
+		ifp = if_get_by_ifindex(sock->ifindex);
+		if_leave_vrrp_group(sock->family, sock->fd_in, ifp);
+	}
+	if (sock->fd_out > 0)
+		close(sock->fd_out);
+	FREE(sock_data);
 }
 
 static void
-dump_sock(void *sock_data_obj)
+dump_sock(void *sock_data)
 {
-	sock *sock_obj = sock_data_obj;
-	syslog(LOG_INFO, "VRRP sockpool: [ifindex(%d), proto(%d), fd(%d,%d)]",
-	       sock_obj->ifindex
-	       , sock_obj->proto
-	       , sock_obj->fd_in
-	       , sock_obj->fd_out);
+	sock_t *sock = sock_data;
+	log_message(LOG_INFO, "VRRP sockpool: [ifindex(%d), proto(%d), fd(%d,%d)]"
+			    , sock->ifindex
+			    , sock->proto
+			    , sock->fd_in
+			    , sock->fd_out);
 }
 
 static void
@@ -188,77 +192,83 @@ static void
 dump_vrrp(void *data)
 {
 	vrrp_rt *vrrp = data;
+	char auth_data[sizeof(vrrp->auth_data) + 1];
 
-	syslog(LOG_INFO, " VRRP Instance = %s", vrrp->iname);
+	log_message(LOG_INFO, " VRRP Instance = %s", vrrp->iname);
+	if (vrrp->family == AF_INET6)
+		log_message(LOG_INFO, "   Using Native IPv6");
 	if (vrrp->init_state == VRRP_STATE_BACK)
-		syslog(LOG_INFO, "   Want State = BACKUP");
+		log_message(LOG_INFO, "   Want State = BACKUP");
 	else
-		syslog(LOG_INFO, "   Want State = MASTER");
-	syslog(LOG_INFO, "   Runing on device = %s", IF_NAME(vrrp->ifp));
+		log_message(LOG_INFO, "   Want State = MASTER");
+	log_message(LOG_INFO, "   Runing on device = %s", IF_NAME(vrrp->ifp));
 	if (vrrp->dont_track_primary)
-		syslog(LOG_INFO, "   VRRP interface tracking disabled");
+		log_message(LOG_INFO, "   VRRP interface tracking disabled");
 	if (vrrp->mcast_saddr)
-		syslog(LOG_INFO, "   Using mcast src_ip = %s",
+		log_message(LOG_INFO, "   Using mcast src_ip = %s",
 		       inet_ntop2(vrrp->mcast_saddr));
 	if (vrrp->lvs_syncd_if)
-		syslog(LOG_INFO, "   Runing LVS sync daemon on interface = %s",
+		log_message(LOG_INFO, "   Runing LVS sync daemon on interface = %s",
 		       vrrp->lvs_syncd_if);
 	if (vrrp->garp_delay)
-		syslog(LOG_INFO, "   Gratuitous ARP delay = %d",
+		log_message(LOG_INFO, "   Gratuitous ARP delay = %d",
 		       vrrp->garp_delay/TIMER_HZ);
-	syslog(LOG_INFO, "   Virtual Router ID = %d", vrrp->vrid);
-	syslog(LOG_INFO, "   Priority = %d", vrrp->base_priority);
-	syslog(LOG_INFO, "   Advert interval = %dsec",
+	log_message(LOG_INFO, "   Virtual Router ID = %d", vrrp->vrid);
+	log_message(LOG_INFO, "   Priority = %d", vrrp->base_priority);
+	log_message(LOG_INFO, "   Advert interval = %dsec",
 	       vrrp->adver_int / TIMER_HZ);
 	if (vrrp->nopreempt)
-		syslog(LOG_INFO, "   Preempt disabled");
+		log_message(LOG_INFO, "   Preempt disabled");
 	if (vrrp->preempt_delay)
-		syslog(LOG_INFO, "   Preempt delay = %ld secs",
+		log_message(LOG_INFO, "   Preempt delay = %ld secs",
 		       vrrp->preempt_delay / TIMER_HZ);
 	if (vrrp->auth_type) {
-		syslog(LOG_INFO, "   Authentication type = %s",
+		log_message(LOG_INFO, "   Authentication type = %s",
 		       (vrrp->auth_type ==
 			VRRP_AUTH_AH) ? "IPSEC_AH" : "SIMPLE_PASSWORD");
-		syslog(LOG_INFO, "   Password = %s", vrrp->auth_data);
+		/* vrrp->auth_data is not \0 terminated */
+		memcpy(auth_data, vrrp->auth_data, sizeof(vrrp->auth_data));
+		auth_data[sizeof(vrrp->auth_data)] = '\0';
+		log_message(LOG_INFO, "   Password = %s", auth_data);
 	}
 	if (!LIST_ISEMPTY(vrrp->track_ifp)) {
-		syslog(LOG_INFO, "   Tracked interfaces = %d", LIST_SIZE(vrrp->track_ifp));
+		log_message(LOG_INFO, "   Tracked interfaces = %d", LIST_SIZE(vrrp->track_ifp));
 		dump_list(vrrp->track_ifp);
 	}
 	if (!LIST_ISEMPTY(vrrp->track_script)) {
-		syslog(LOG_INFO, "   Tracked scripts = %d",
+		log_message(LOG_INFO, "   Tracked scripts = %d",
 		       LIST_SIZE(vrrp->track_script));
 		dump_list(vrrp->track_script);
 	}
 	if (!LIST_ISEMPTY(vrrp->vip)) {
-		syslog(LOG_INFO, "   Virtual IP = %d", LIST_SIZE(vrrp->vip));
+		log_message(LOG_INFO, "   Virtual IP = %d", LIST_SIZE(vrrp->vip));
 		dump_list(vrrp->vip);
 	}
 	if (!LIST_ISEMPTY(vrrp->evip)) {
-		syslog(LOG_INFO, "   Virtual IP Excluded = %d", LIST_SIZE(vrrp->evip));
+		log_message(LOG_INFO, "   Virtual IP Excluded = %d", LIST_SIZE(vrrp->evip));
 		dump_list(vrrp->evip);
 	}
 	if (!LIST_ISEMPTY(vrrp->vroutes)) {
-		syslog(LOG_INFO, "   Virtual Routes = %d", LIST_SIZE(vrrp->vroutes));
+		log_message(LOG_INFO, "   Virtual Routes = %d", LIST_SIZE(vrrp->vroutes));
 		dump_list(vrrp->vroutes);
 	}
 	if (vrrp->script_backup)
-		syslog(LOG_INFO, "   Backup state transition script = %s",
+		log_message(LOG_INFO, "   Backup state transition script = %s",
 		       vrrp->script_backup);
 	if (vrrp->script_master)
-		syslog(LOG_INFO, "   Master state transition script = %s",
+		log_message(LOG_INFO, "   Master state transition script = %s",
 		       vrrp->script_master);
 	if (vrrp->script_fault)
-		syslog(LOG_INFO, "   Fault state transition script = %s",
+		log_message(LOG_INFO, "   Fault state transition script = %s",
 		       vrrp->script_fault);
 	if (vrrp->script_stop)
-		syslog(LOG_INFO, "   Stop state transition script = %s",
+		log_message(LOG_INFO, "   Stop state transition script = %s",
 		       vrrp->script_stop);
 	if (vrrp->script)
-		syslog(LOG_INFO, "   Generic state transition script = '%s'",
+		log_message(LOG_INFO, "   Generic state transition script = '%s'",
 		       vrrp->script);
 	if (vrrp->smtp_alert)
-		syslog(LOG_INFO, "   Using smtp notification");
+		log_message(LOG_INFO, "   Using smtp notification");
 }
 
 void
@@ -291,6 +301,7 @@ alloc_vrrp(char *iname)
 	new->ipsecah_counter = counter;
 
 	/* Set default values */
+	new->family = AF_INET;
 	new->wantstate = VRRP_STATE_BACK;
 	new->init_state = VRRP_STATE_BACK;
 	new->adver_int = TIMER_HZ;
@@ -324,6 +335,9 @@ void
 alloc_vrrp_vip(vector strvec)
 {
 	vrrp_rt *vrrp = LIST_TAIL_DATA(vrrp_data->vrrp);
+	if (vrrp->ifp == NULL) {
+		log_message(LOG_ERR, "Configuration error: VRRP definition must belong to an interface");
+	}
 
 	if (LIST_ISEMPTY(vrrp->vip))
 		vrrp->vip = alloc_list(free_ipaddress, dump_ipaddress);
@@ -358,11 +372,13 @@ alloc_vrrp_script(char *sname)
 	/* Allocate new VRRP group structure */
 	new = (vrrp_script *) MALLOC(sizeof (vrrp_script));
 	new->sname = (char *) MALLOC(size + 1);
-	memcpy(new->sname, sname, size);
+	memcpy(new->sname, sname, size + 1);
 	new->interval = VRRP_SCRIPT_DI * TIMER_HZ;
 	new->weight = VRRP_SCRIPT_DW;
 	new->result = VRRP_SCRIPT_STATUS_INIT;
 	new->inuse = 0;
+	new->rise = 1;
+	new->fall = 1;
 	list_add(vrrp_data->vrrp_script, new);
 }
 
@@ -386,7 +402,7 @@ alloc_vrrp_data(void)
 
 	new = (vrrp_conf_data *) MALLOC(sizeof (vrrp_conf_data));
 	new->vrrp = alloc_list(free_vrrp, dump_vrrp);
-	new->vrrp_index = alloc_mlist(NULL, NULL, 256);
+	new->vrrp_index = alloc_mlist(NULL, NULL, 255+1);
 	new->vrrp_index_fd = alloc_mlist(NULL, NULL, 1024+1);
 	new->vrrp_sync_group = alloc_list(free_vgroup, dump_vgroup);
 	new->vrrp_script = alloc_list(free_vscript, dump_vscript);
@@ -396,40 +412,46 @@ alloc_vrrp_data(void)
 }
 
 void
-free_vrrp_data(vrrp_conf_data * vrrp_data_obj)
+free_vrrp_data(vrrp_conf_data * vrrp_data)
 {
-	free_list(vrrp_data_obj->static_addresses);
-	free_list(vrrp_data_obj->static_routes);
-	free_mlist(vrrp_data_obj->vrrp_index, 256);
-	free_mlist(vrrp_data_obj->vrrp_index_fd, 1024+1);
-	free_list(vrrp_data_obj->vrrp);
-	free_list(vrrp_data_obj->vrrp_sync_group);
-	free_list(vrrp_data_obj->vrrp_script);
-	free_list(vrrp_data_obj->vrrp_socket_pool);
-	FREE(vrrp_data_obj);
+	free_list(vrrp_data->static_addresses);
+	free_list(vrrp_data->static_routes);
+	free_mlist(vrrp_data->vrrp_index, 255+1);
+	free_mlist(vrrp_data->vrrp_index_fd, 1024+1);
+	free_list(vrrp_data->vrrp);
+	free_list(vrrp_data->vrrp_sync_group);
+	free_list(vrrp_data->vrrp_script);
+//	free_list(vrrp_data->vrrp_socket_pool);
+	FREE(vrrp_data);
 }
 
 void
-dump_vrrp_data(vrrp_conf_data * vrrp_data_obj)
+free_vrrp_sockpool(vrrp_conf_data * vrrp_data)
 {
-	if (!LIST_ISEMPTY(vrrp_data_obj->static_addresses)) {
-		syslog(LOG_INFO, "------< Static Addresses >------");
-		dump_list(vrrp_data_obj->static_addresses);
+	free_list(vrrp_data->vrrp_socket_pool);
+}
+
+void
+dump_vrrp_data(vrrp_conf_data * vrrp_data)
+{
+	if (!LIST_ISEMPTY(vrrp_data->static_addresses)) {
+		log_message(LOG_INFO, "------< Static Addresses >------");
+		dump_list(vrrp_data->static_addresses);
 	}
-	if (!LIST_ISEMPTY(vrrp_data_obj->static_routes)) {
-		syslog(LOG_INFO, "------< Static Routes >------");
-		dump_list(vrrp_data_obj->static_routes);
+	if (!LIST_ISEMPTY(vrrp_data->static_routes)) {
+		log_message(LOG_INFO, "------< Static Routes >------");
+		dump_list(vrrp_data->static_routes);
 	}
-	if (!LIST_ISEMPTY(vrrp_data_obj->vrrp)) {
-		syslog(LOG_INFO, "------< VRRP Topology >------");
-		dump_list(vrrp_data_obj->vrrp);
+	if (!LIST_ISEMPTY(vrrp_data->vrrp)) {
+		log_message(LOG_INFO, "------< VRRP Topology >------");
+		dump_list(vrrp_data->vrrp);
 	}
-	if (!LIST_ISEMPTY(vrrp_data_obj->vrrp_sync_group)) {
-		syslog(LOG_INFO, "------< VRRP Sync groups >------");
-		dump_list(vrrp_data_obj->vrrp_sync_group);
+	if (!LIST_ISEMPTY(vrrp_data->vrrp_sync_group)) {
+		log_message(LOG_INFO, "------< VRRP Sync groups >------");
+		dump_list(vrrp_data->vrrp_sync_group);
 	}
-	if (!LIST_ISEMPTY(vrrp_data_obj->vrrp_script)) {
-		syslog(LOG_INFO, "------< VRRP Scripts >------");
-		dump_list(vrrp_data_obj->vrrp_script);
+	if (!LIST_ISEMPTY(vrrp_data->vrrp_script)) {
+		log_message(LOG_INFO, "------< VRRP Scripts >------");
+		dump_list(vrrp_data->vrrp_script);
 	}
 }

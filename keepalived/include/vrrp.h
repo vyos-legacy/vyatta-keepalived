@@ -6,8 +6,6 @@
  *
  * Part:        vrrp.c program include file.
  *
- * Version:     $Id: vrrp.h,v 1.1.15 2007/09/15 04:07:41 acassen Exp $
- *
  * Author:      Alexandre Cassen, <acassen@linux-vs.org>
  *
  *              This program is distributed in the hope that it will be useful, 
@@ -20,7 +18,7 @@
  *              as published by the Free Software Foundation; either version
  *              2 of the License, or (at your option) any later version.
  *
- * Copyright (C) 2001-2007 Alexandre Cassen, <acassen@freebox.fr>
+ * Copyright (C) 2001-2011 Alexandre Cassen, <acassen@linux-vs.org>
  */
 
 #ifndef _VRRP_H
@@ -53,19 +51,19 @@ typedef struct {		/* rfc2338.5.1 */
 } vrrp_pkt;
 
 /* protocol constants */
-#define INADDR_VRRP_GROUP 0xe0000012	/* multicast addr - rfc2338.5.2.2 */
-#define VRRP_IP_TTL	255	/* in and out pkt ttl -- rfc2338.5.2.3 */
-#define IPPROTO_VRRP	112	/* IP protocol number -- rfc2338.5.2.4 */
-#define VRRP_VERSION	2	/* current version -- rfc2338.5.3.1 */
-#define VRRP_PKT_ADVERT	1	/* packet type -- rfc2338.5.3.2 */
-#define VRRP_PRIO_OWNER	255	/* priority of the ip owner -- rfc2338.5.3.4 */
-#define VRRP_PRIO_DFL	100	/* default priority -- rfc2338.5.3.4 */
-#define VRRP_PRIO_STOP	0	/* priority to stop -- rfc2338.5.3.4 */
-#define VRRP_AUTH_NONE	0	/* no authentification -- rfc2338.5.3.6 */
-#define VRRP_AUTH_PASS	1	/* password authentification -- rfc2338.5.3.6 */
-#define VRRP_AUTH_AH	2	/* AH(IPSec) authentification - rfc2338.5.3.6 */
-#define VRRP_ADVER_DFL	1	/* advert. interval (in sec) -- rfc2338.5.3.7 */
-#define VRRP_GARP_DELAY (5 * TIMER_HZ)	/* Default delay to launch gratuitous arp */
+#define INADDR_VRRP_GROUP	0xe0000012	/* multicast addr - rfc2338.5.2.2 */
+#define VRRP_IP_TTL		255		/* in and out pkt ttl -- rfc2338.5.2.3 */
+#define IPPROTO_VRRP		112		/* IP protocol number -- rfc2338.5.2.4 */
+#define VRRP_VERSION		2		/* current version -- rfc2338.5.3.1 */
+#define VRRP_PKT_ADVERT		1		/* packet type -- rfc2338.5.3.2 */
+#define VRRP_PRIO_OWNER		255		/* priority of the ip owner -- rfc2338.5.3.4 */
+#define VRRP_PRIO_DFL		100		/* default priority -- rfc2338.5.3.4 */
+#define VRRP_PRIO_STOP		0		/* priority to stop -- rfc2338.5.3.4 */
+#define VRRP_AUTH_NONE		0		/* no authentification -- rfc2338.5.3.6 */
+#define VRRP_AUTH_PASS		1		/* password authentification -- rfc2338.5.3.6 */
+#define VRRP_AUTH_AH		2		/* AH(IPSec) authentification - rfc2338.5.3.6 */
+#define VRRP_ADVER_DFL		1		/* advert. interval (in sec) -- rfc2338.5.3.7 */
+#define VRRP_GARP_DELAY 	(5 * TIMER_HZ)	/* Default delay to launch gratuitous arp */
 
 /*
  * parameters per vrrp sync group. A vrrp_sync_group is a set
@@ -88,6 +86,7 @@ typedef struct _vrrp_sgroup {
 
 /* parameters per virtual router -- rfc2338.6.1.2 */
 typedef struct _vrrp_rt {
+	sa_family_t family;	/* AF_INET|AF_INET6 */
 	char *iname;		/* Instance Name */
 	vrrp_sgroup *sync;	/* Sync group we belong to */
 	interface *ifp;		/* Interface we belong to */
@@ -117,7 +116,6 @@ typedef struct _vrrp_rt {
 				 * prio is allowed.  0 means no delay.
 				 */
 	TIMEVAL preempt_time;   /* Time after which preemption can happen */
-        int preempt_delay_active;
 	int state;		/* internal state (init/backup/master) */
 	int init_state;		/* the initial state of the instance */
 	int wantstate;		/* user explicitly wants a state (back/mast) */
@@ -167,7 +165,7 @@ typedef struct _vrrp_rt {
 #define VRRP_STATE_FAULT		3	/* internal */
 #define VRRP_STATE_GOTO_MASTER		4	/* internal */
 #define VRRP_STATE_LEAVE_MASTER		5	/* internal */
-#define VRRP_STATE_GOTO_FAULT		98	/* internal */
+#define VRRP_STATE_GOTO_FAULT 		98	/* internal */
 #define VRRP_DISPATCHER 		99	/* internal */
 #define VRRP_MCAST_RETRY		10	/* internal */
 #define VRRP_MAX_FSM_STATE		4	/* internal */
@@ -203,26 +201,32 @@ typedef struct _vrrp_rt {
 
 #define VRRP_PKT_SADDR(V) (((V)->mcast_saddr) ? (V)->mcast_saddr : IF_ADDR((V)->ifp))
 
-#define VRRP_ISUP(V)   ((IF_ISUP((V)->ifp) || (V)->dont_track_primary) & \
-			((!LIST_ISEMPTY((V)->track_ifp)) ? TRACK_ISUP((V)->track_ifp) : 1))
+#define VRRP_IF_ISUP(V)        ((IF_ISUP((V)->ifp) || (V)->dont_track_primary) & \
+                               ((!LIST_ISEMPTY((V)->track_ifp)) ? TRACK_ISUP((V)->track_ifp) : 1))
+
+#define VRRP_SCRIPT_ISUP(V)    ((!LIST_ISEMPTY((V)->track_script)) ? SCRIPT_ISUP((V)->track_script) : 1)
+
+#define VRRP_ISUP(V)           (VRRP_IF_ISUP(V) && VRRP_SCRIPT_ISUP(V))
 
 /* prototypes */
-extern int open_vrrp_send_socket(const int proto, const int idx);
-extern int open_vrrp_socket(const int proto, const int idx);
-extern int new_vrrp_socket(vrrp_rt * vrrp);
-extern void close_vrrp_socket(vrrp_rt * vrrp);
-extern void vrrp_send_gratuitous_arp(vrrp_rt * vrrp);
-extern int vrrp_send_adv(vrrp_rt * vrrp, int prio);
-extern int vrrp_state_fault_rx(vrrp_rt * vrrp, char *buf, int buflen);
-extern int vrrp_state_master_rx(vrrp_rt * vrrp, char *buf, int buflen);
-extern int vrrp_state_master_tx(vrrp_rt * vrrp, const int prio);
-extern void vrrp_state_backup(vrrp_rt * vrrp, char *buf, int buflen);
-extern void vrrp_state_goto_master(vrrp_rt * vrrp);
-extern void vrrp_state_leave_master(vrrp_rt * vrrp);
+extern vrrp_pkt *vrrp_get_header(sa_family_t, char *, int *, uint32_t *);
+extern int open_vrrp_send_socket(sa_family_t, int, int);
+extern int open_vrrp_socket(sa_family_t, int, int);
+extern int new_vrrp_socket(vrrp_rt *);
+extern void close_vrrp_socket(vrrp_rt *);
+extern void vrrp_send_link_update(vrrp_rt *);
+extern int vrrp_send_adv(vrrp_rt *, int);
+extern int vrrp_state_fault_rx(vrrp_rt *, char *, int);
+extern int vrrp_state_master_rx(vrrp_rt *, char *, int);
+extern int vrrp_state_master_tx(vrrp_rt *, const int);
+extern void vrrp_state_backup(vrrp_rt *, char *, int);
+extern void vrrp_state_goto_master(vrrp_rt *);
+extern void vrrp_state_leave_master(vrrp_rt *);
 extern int vrrp_ipsecah_len(void);
 extern int vrrp_complete_init(void);
 extern void shutdown_vrrp_instances(void);
 extern void clear_diff_vrrp(void);
-extern void vrrp_restore_interface(vrrp_rt * vrrp, int advF);
+extern void clear_diff_script(void);
+extern void vrrp_restore_interface(vrrp_rt *, int);
 
 #endif

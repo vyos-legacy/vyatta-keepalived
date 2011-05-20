@@ -5,7 +5,7 @@
  *
  * Part:        ssl.c include file.
  *
- * Version:     $Id: ssl.h,v 1.0.0 2002/11/20 21:34:18 acassen Exp $
+ * Version:     $Id: ssl.h,v 1.1.16 2009/02/14 03:25:07 acassen Exp $
  *
  * Authors:     Alexandre Cassen, <acassen@linux-vs.org>
  *
@@ -19,7 +19,7 @@
  *              as published by the Free Software Foundation; either version
  *              2 of the License, or (at your option) any later version.
  *
- * Copyright (C) 2001-2007 Alexandre Cassen, <acassen@freebox.fr>
+ * Copyright (C) 2001-2011 Alexandre Cassen, <acassen@linux-vs.org>
  */
 
 #ifndef _SSL_H
@@ -29,9 +29,9 @@
 
 /* Prototypes */
 extern void init_ssl(void);
-extern int ssl_connect(thread * thread_obj);
-extern int ssl_printerr(int err);
-extern int ssl_send_request(SSL * ssl, char *str_request, int request_len);
-extern int ssl_read_thread(thread * thread_obj);
+extern int ssl_connect(thread_t *);
+extern int ssl_printerr(int);
+extern int ssl_send_request(SSL *, char *, int);
+extern int ssl_read_thread(thread_t *);
 
 #endif
