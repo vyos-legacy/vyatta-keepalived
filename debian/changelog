@@ -1,3 +1,9 @@
+vyatta-keepalived (1.1.15-1-vyatta-13) unstable; urgency=low
+
+  * Fix init file to match correct pid file name.
+
+ -- Stig Thormodsrud <stig@vyatta.com>  Fri, 20 May 2011 11:18:54 -0700
+
 vyatta-keepalived (1.1.15-1-vyatta-12) unstable; urgency=low
 
   * Partial fix for 6393: keepalived shutdown too late.
