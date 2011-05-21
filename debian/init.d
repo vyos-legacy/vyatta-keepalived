@@ -7,7 +7,7 @@
 ### BEGIN INIT INFO
 # Provides:          keepalived
 # Required-Start:    $syslog $network
-# Required-Stop:     $syslog $network
+# Required-Stop:     $syslog $network $remote_fs
 # Default-Start:     
 # Default-Stop:      0 1 6
 # Short-Description: Stops keepalived (start is done by vyatta cli)
@@ -15,7 +15,7 @@
 ### END INIT INFO
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 DAEMON=/usr/sbin/keepalived
-NAME=keepalived_vrrp
+NAME=keepalived
 DESC=keepalived
 CONFIG=/etc/keepalived/keepalived.conf
 TMPFILES="/tmp/.vrrp /tmp/.healthcheckers"
@@ -23,7 +23,6 @@ TMPFILES="/tmp/.vrrp /tmp/.healthcheckers"
 #includes lsb functions 
 . /lib/lsb/init-functions
 
-set -e
 test -f $CONFIG || exit 0 
 test -f $DAEMON || exit 0
 
@@ -63,7 +62,7 @@ case "$1" in
   	log_action_begin_msg "Restarting $DESC" "$NAME"
 
        	start-stop-daemon --stop --quiet --pidfile \
-		/var/run/$NAME.pid --exec $DAEMON
+		/var/run/$NAME.pid --exec $DAEMON || true
        sleep 1
        if start-stop-daemon --start --quiet --pidfile \
                /var/run/$NAME.pid --exec $DAEMON; then

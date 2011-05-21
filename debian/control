@@ -6,8 +6,9 @@ Build-Depends: debhelper (>= 5),
  libssl-dev, 
  libpopt-dev, 
  cdbs, 
- autoconf
-Standards-Version: 3.7.3
+ autoconf,
+ linux-libc-dev
+Standards-Version: 3.9.1
 
 Package: vyatta-keepalived
 Section: admin
@@ -15,7 +16,8 @@ Architecture: any
 Replaces: keepalived
 Depends: ${shlibs:Depends}, 
  ipvsadm, 
- iproute
+ iproute,
+ ${misc:Depends}
 Description: Failover and monitoring daemon for LVS clusters
  keepalived is used for monitoring real servers within a Linux
  Virtual Server (LVS) cluster.  keepalived can be configured to
@@ -28,4 +30,4 @@ Description: Failover and monitoring daemon for LVS clusters
  framework for director failover.
  .
  You need a kernel >= 2.4.28 or >= 2.6.11 for keepalived.
- See README.Debian for more informations.
+ See README.Debian for more information.
