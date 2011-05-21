@@ -23,6 +23,8 @@
 /* system includes */
 #include <netpacket/packet.h>
 
+#define __KERNEL_STRICT_NAMES
+
 /* local includes */
 #include "logger.h"
 #include "memory.h"

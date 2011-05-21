@@ -8,7 +8,7 @@ So you need a newer kernel to get keepalived working properly.
 
 See http://sourceforge.net/mailarchive/forum.php?thread_id=4855643&forum_id=3211 
 and http://sourceforge.net/mailarchive/forum.php?thread_id=5353482&forum_id=3211
-for more informations.
+for more information.
 
 Keepalived will not work with debian default kernels.
 
