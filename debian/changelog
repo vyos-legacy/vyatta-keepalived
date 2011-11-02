@@ -1,3 +1,21 @@
+vyatta-keepalived (1.1.15-1-vyatta-15) unstable; urgency=low
+
+  [ Stig Thormodsrud ]
+  * merge upstream keepalived v1.2.2 into napa branch
+  * Add debian changes.
+  * Force vrrpd to send a 0 priority advert when forcing a transition
+    from
+  * Fix 3144: VRRP backup obtains VIP resulting in a duplicate IP
+    situation.
+  * Add makefile rule for TAGS ID.
+  * Fix 3214: Preemption occurred while "preempt false" on both sides
+    and
+  * Make preempt_delay work more than once.
+
+  [ Bob Gilligan ]
+
+ -- Bob Gilligan <gilligan@vyatta.com>  Tue, 01 Nov 2011 17:55:19 -0700
+
 vyatta-keepalived (1.1.15-1-vyatta-14) unstable; urgency=low
 
   * new branch
