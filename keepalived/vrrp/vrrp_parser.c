@@ -105,6 +105,8 @@ vrrp_vmac_handler(vector strvec)
 {
 	vrrp_rt *vrrp = LIST_TAIL_DATA(vrrp_data->vrrp);
 	vrrp->vmac = 1;
+	if (!(vrrp->mcast_saddr))
+		vrrp->mcast_saddr  = IF_ADDR(vrrp->ifp);
 	if (vrrp->ifp && !(vrrp->vmac & 2))
 		netlink_link_add_vmac(vrrp);
 }
