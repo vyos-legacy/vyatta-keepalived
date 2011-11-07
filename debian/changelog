@@ -1,3 +1,146 @@
+vyatta-keepalived (1.1.15-1-vyatta-16) unstable; urgency=low
+
+  [ Alexandre Cassen ]
+  * Initial commit
+  * keepalived-0.2.1
+  * keepalived-0.2.3
+  * keepalived-0.2.6
+  * keepalived-0.2.7
+  * keepalived-0.3.5
+  * keepalived-0.3.6
+  * keepalived-0.3.7
+  * keepalived-0.3.8
+  * keepalived-0.4.0
+  * keepalived-0.4.1
+  * keepalived-0.4.8
+  * keepalived-0.4.9
+  * keepalived-0.4.9a
+  * keepalived-0.5.3
+  * keepalived-0.5.5
+  * keepalived-0.5.6
+  * keepalived-0.5.7
+  * keepalived-0.5.8
+  * keepalived-0.5.9
+  * keepalived-0.6.1
+  * keepalived-0.6.2
+  * keepalived-0.6.3
+  * keepalived-0.6.4
+  * keepalived-0.6.6
+  * keepalived-0.6.8
+  * keepalived-0.6.9
+  * keepalived-0.6.10
+  * keepalived-0.7.1
+  * keepalived-0.7.6
+  * keepalived-1.0.0
+  * keepalived-1.0.1
+  * keepalived-1.0.2
+  * keepalived-1.0.3
+  * keepalived-1.1.0
+  * keepalived-1.1.1
+  * keepalived-1.1.2
+  * keepalived-1.1.3
+  * keepalived-1.1.4
+  * keepalived-1.1.5
+  * keepalived-1.1.6
+  * keepalived-1.1.7
+  * keepalived-1.1.8
+  * keepalived-1.1.9
+  * keepalived-1.1.10
+  * keepalived-1.1.11
+  * keepalived-1.1.12
+  * keepalived-1.1.13
+  * keepalived-1.1.14
+  * keepalived-1.1.15
+  * keepalived-1.1.16
+  * keepalived-1.1.17
+  * keepalived-1.1.18
+  * signal handling: register signals on reload
+  * Cosmetics updates
+  * VRRP: fixed nopreempt from FAULT state
+  * Fix VS_ISEQ macro.
+  * Revert "Fix VS_ISEQ macro."
+
+  [ Vincent Bernat ]
+  * Fix VS_ISEQ macro.
+
+  [ Alexandre Cassen ]
+  * signals: re-register SIGCHLD upon reload
+
+  [ Vincent Bernat ]
+  * Fix a segfault happening when there is no real server for a virtual
+    server.
+
+  [ Alexandre Cassen ]
+  * dont log netlink skipping nl_cmd msg.
+  * More cosmetics
+  * keepalived-1.1.19
+
+  [ Vincent Bernat ]
+  * On reload, keep status for all VRRP scripts.
+  * Fix VRRP script not running any more after reload.
+  * Keep previous effective VRRP priority on reload.
+  * Add real servers to new member of a virtual server group on reload.
+  * Fix a segfault when a virtual_server is empty.
+
+  [ Alexandre Cassen ]
+  * Remove IPVS Kernel 2.2 support
+
+  [ Vincent Bernat ]
+  * Remove alive real servers when quorum is lost.
+  * Handle non-existant default interface in VIP definition.
+  * Fix SMTP checker adding himself repeatedly in the list of failed
+    checkers
+  * On reload, destroy signal pipes before recreating them.
+  * When parsing "blackhole" route, also parse IP mask.
+  * Output an error when giving an incorrect IP to genhash.
+  * Fix broadcast address display in dump_ipaddress().
+  * Not being able to create route or IP when it already exists is OK.
+
+  [ Alexandre Cassen ]
+  * keepalived-1.1.20
+  * * Branch 1.2.0 created. This branch will host all new
+
+  [ Vincent Bernat ]
+  * VRRP: Fix incorrect computation for packet size
+  * VRRP: handle passwords up to 8 characters
+  * When updating weight, check quorum state.
+  * Fix an infinite loop in master transition with sync groups.
+  * Use VRRP_PRIO_DFL instead of 100 for default priority.
+  * Use netpacket/packet.h instead of linux/if_packet.h to get
+    sockaddr_ll.
+  * Keep current weight on reload when initial weight is not altered.
+  * vrrp: disabled scripts and initially good scripts should be
+    considered as OK.
+  * vrrp: more informative message when disabling a script due to use of
+    weights
+  * check: include missing virtual server group name in a log message
+  * configure: add a check for ETHERTYPE_IPV6
+  * check: update server weight in IPVS only if server is alive and in
+    the pool
+  * check: really add back inhibited server when quorum is gained
+  * check: update server weight despite quorum when no sorry server
+
+  [ Alexandre Cassen ]
+  * keepalived-1.2.1
+  * VERSION update
+  * check: remove old kernel 2.2 ipfw stuff.
+  * keepalived-1.2.2
+  * Add missing files !
+  * update Copyright
+  * Change checker activity login format.
+  * code clean-up: move thread typedef to thread_t
+  * code clean-up: checker framework typedef
+  * code clean-up: review global data typedef
+  * Cosmetics changes
+  * Created macvlan core framework
+  * * More Virtual MAC support work
+
+  [ Bob Gilligan ]
+  * Fix source IP of VRRP advertisements when using virtual MAC
+  * Put macvlan interface into private mode.
+
+ -- Bob Gilligan <gilligan@vyatta.com>  Mon, 07 Nov 2011 14:45:03 -0800
+
 vyatta-keepalived (1.1.15-1-vyatta-15) unstable; urgency=low
 
   [ Stig Thormodsrud ]
