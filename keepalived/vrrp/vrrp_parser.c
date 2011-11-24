@@ -107,6 +107,14 @@ vrrp_vmac_handler(vector strvec)
 	vrrp->vmac = 1;
 	if (!(vrrp->mcast_saddr))
 		vrrp->mcast_saddr  = IF_ADDR(vrrp->ifp);
+	if (strvec && (strvec->allocated == 2))
+		strncpy(vrrp->vmac_ifname, VECTOR_SLOT(strvec, 1),
+			IFNAMSIZ - 1);
+	else 
+		snprintf(vrrp->vmac_ifname, IFNAMSIZ, "vrrp.%d", vrrp->vrid);
+	log_message(LOG_INFO, "vrrp_vmac_handler: vmac ifname is %s",
+			    vrrp->vmac_ifname);
+
 	if (vrrp->ifp && !(vrrp->vmac & 2))
 		netlink_link_add_vmac(vrrp);
 }

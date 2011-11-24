@@ -147,7 +147,8 @@ netlink_link_add_vmac(vrrp_rt *vrrp)
 		return -1;
 
 	memset(&req, 0, sizeof (req));
-	snprintf(ifname, IFNAMSIZ, "vrrp.%d", vrrp->vrid);
+	memset(ifname, 0, IFNAMSIZ);
+	strncpy(ifname, vrrp->vmac_ifname, IFNAMSIZ - 1);
 
 	/* 
 	 * Check to see if this vmac interface was created 

@@ -93,6 +93,7 @@ typedef struct _vrrp_rt {
 	int dont_track_primary; /* If set ignores ifp faults */
 	int vmac;		/* If set try to set VRRP VMAC */
 	unsigned int vmac_ifindex;	/* ifindex of vmac interface */
+	char vmac_ifname[IFNAMSIZ];	/* name of vmac interface */
 	list track_ifp;		/* Interface state we monitor */
 	list track_script;	/* Script state we monitor */
 	uint32_t mcast_saddr;	/* Src IP address to use in VRRP IP header */
