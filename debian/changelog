@@ -1,3 +1,10 @@
+vyatta-keepalived (1.1.15-1-vyatta-19) unstable; urgency=low
+
+  * Allow interface name to be optionally specified on "use_vmac" config
+    line.
+
+ -- Bob Gilligan <gilligan@vyatta.com>  Wed, 23 Nov 2011 17:26:08 -0800
+
 vyatta-keepalived (1.1.15-1-vyatta-18) unstable; urgency=low
 
   * Correctly handle macvlan interface when config file is re-loaded.
