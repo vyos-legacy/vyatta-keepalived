@@ -1,3 +1,11 @@
+vyatta-keepalived (1.1.15-1-vyatta-20) unstable; urgency=low
+
+  * VRRP should notify other routers before it does any action that
+    effects traffic flow
+  * Remove unneeded debugging information
+
+ -- John Southworth <john.southworth@vyatta.com>  Tue, 13 Dec 2011 16:28:09 -0800
+
 vyatta-keepalived (1.1.15-1-vyatta-19) unstable; urgency=low
 
   * Allow interface name to be optionally specified on "use_vmac" config
