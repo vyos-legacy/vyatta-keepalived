@@ -752,6 +752,15 @@ vrrp_state_goto_master(vrrp_rt * vrrp)
 void
 vrrp_restore_interface(vrrp_rt * vrrp, int advF)
 {
+        /* if we stop vrrp, warn the other routers to speed up the recovery */
+	if (advF) {
+	        syslog(LOG_INFO, "VRRP_Instance(%s) sending 0 priority",
+		       vrrp->iname);
+		int ret = vrrp_send_adv(vrrp, VRRP_PRIO_STOP);
+		if (ret < 0)
+		  syslog(LOG_INFO, "VRRP_Instance(%s) failed to send 0 priority", vrrp->iname);
+	}
+
 	/* remove virtual routes */
 	if (!LIST_ISEMPTY(vrrp->vroutes))
 		vrrp_handle_iproutes(vrrp, IPROUTE_DEL);
@@ -777,14 +786,7 @@ vrrp_restore_interface(vrrp_rt * vrrp, int advF)
 					      VRRP_EVIP_TYPE);
 		vrrp->vipset = 0;
 	}
-
-
-	/* if we stop vrrp, warn the other routers to speed up the recovery */
-	if (advF) {
-	        syslog(LOG_INFO, "VRRP_Instance(%s) sending 0 priority",
-		       vrrp->iname);
-		vrrp_send_adv(vrrp, VRRP_PRIO_STOP);
-	}
+	
 }
 
 void
