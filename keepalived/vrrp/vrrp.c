@@ -756,9 +756,7 @@ vrrp_restore_interface(vrrp_rt * vrrp, int advF)
 	if (advF) {
 	        syslog(LOG_INFO, "VRRP_Instance(%s) sending 0 priority",
 		       vrrp->iname);
-		int ret = vrrp_send_adv(vrrp, VRRP_PRIO_STOP);
-		if (ret < 0)
-		  syslog(LOG_INFO, "VRRP_Instance(%s) failed to send 0 priority", vrrp->iname);
+		vrrp_send_adv(vrrp, VRRP_PRIO_STOP);
 	}
 
 	/* remove virtual routes */
