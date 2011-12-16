@@ -1,3 +1,10 @@
+vyatta-keepalived (1.1.15-1-vyatta-21) unstable; urgency=low
+
+  * Only save the effective priority if it could have been adjusted
+    based on weighted interfaces or scripts.
+
+ -- John Southworth <john.southworth@vyatta.com>  Thu, 15 Dec 2011 21:34:58 -0800
+
 vyatta-keepalived (1.1.15-1-vyatta-20) unstable; urgency=low
 
   * VRRP should notify other routers before it does any action that
