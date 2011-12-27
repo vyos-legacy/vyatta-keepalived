@@ -22,6 +22,7 @@
 
 /* local include */
 #include "vrrp_vmac.h"
+#include "vrrp_vyatta_if.h"
 #include "vrrp_netlink.h"
 #include "vrrp_data.h"
 #include "logger.h"
@@ -190,6 +191,7 @@ netlink_link_add_vmac(vrrp_rt *vrrp)
 	vrrp->vmac_ifindex = IF_INDEX(vrrp->ifp); /* For use on delete */
 	vrrp->vmac |= 2;
 	netlink_link_setlladdr(vrrp);
+	vyatta_if_setup(ifname);
 	netlink_link_up(vrrp);
 	netlink_link_setmode(vrrp);
 

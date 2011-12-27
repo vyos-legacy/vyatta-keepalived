@@ -1053,13 +1053,14 @@ open_vrrp_send_socket(sa_family_t family, int proto, int idx)
 
 /* open a VRRP socket and join the multicast group. */
 int
-open_vrrp_socket(sa_family_t family, int proto, int idx)
+open_vrrp_socket(sa_family_t family, int proto, int idx, int parent_idx)
 {
-	interface *ifp;
+	interface *ifp, *parent_ifp;
 	int fd = -1;
 
 	/* Retreive interface */
 	ifp = if_get_by_ifindex(idx);
+	parent_ifp = if_get_by_ifindex(parent_idx);
 
 	/* open the socket */
 	fd = socket(family, SOCK_RAW, proto);
@@ -1071,6 +1072,7 @@ open_vrrp_socket(sa_family_t family, int proto, int idx)
 
 	/* Join the VRRP MCAST group */
 	if_join_vrrp_group(family, &fd, ifp, proto);
+	if_join_vrrp_group(family, &fd, parent_ifp, proto);
 	if (fd < 0)
 		return -1;
 
@@ -1099,7 +1101,7 @@ new_vrrp_socket(vrrp_rt * vrrp)
 	close_vrrp_socket(vrrp);
 	remove_vrrp_fd_bucket(vrrp);
 	proto = (vrrp->auth_type == VRRP_AUTH_AH) ? IPPROTO_IPSEC_AH : IPPROTO_VRRP;
-	vrrp->fd_in = open_vrrp_socket(vrrp->family, proto, IF_INDEX(vrrp->ifp));
+	vrrp->fd_in = open_vrrp_socket(vrrp->family, proto, IF_INDEX(vrrp->ifp), vrrp->ifindex);
 	vrrp->fd_out = open_vrrp_send_socket(vrrp->family, proto, IF_INDEX(vrrp->ifp));
 	alloc_vrrp_fd_bucket(vrrp);
 

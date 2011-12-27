@@ -150,8 +150,9 @@ static void
 dump_sock(void *sock_data)
 {
 	sock_t *sock = sock_data;
-	log_message(LOG_INFO, "VRRP sockpool: [ifindex(%d), proto(%d), fd(%d,%d)]"
+	log_message(LOG_INFO, "VRRP sockpool: [ifindex(%d), parent_ifindex(%d), proto(%d), fd(%d,%d)]"
 			    , sock->ifindex
+			    , sock->parent_ifindex
 			    , sock->proto
 			    , sock->fd_in
 			    , sock->fd_out);

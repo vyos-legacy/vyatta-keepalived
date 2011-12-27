@@ -61,6 +61,7 @@ stop_vrrp(void)
 	netlink_rtlist_ipv4(vrrp_data->static_routes, IPROUTE_DEL);
 	netlink_iplist(vrrp_data->static_addresses, IPADDRESS_DEL);
 
+	free_vrrp_sockpool(vrrp_data);
 	free_interface_queue();
 	gratuitous_arp_close();
 	ndisc_close();
@@ -70,7 +71,6 @@ stop_vrrp(void)
 
 	/* Clean data */
 	free_global_data(data);
-	free_vrrp_sockpool(vrrp_data);
 	free_vrrp_data(vrrp_data);
 	free_vrrp_buffer();
 
