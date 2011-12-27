@@ -1,3 +1,9 @@
+vyatta-keepalived (1.1.15-1-vyatta-23) unstable; urgency=low
+
+  * Apply workaround for vmac interface being too chatty in backup
+
+ -- John Southworth <john.southworth@vyatta.com>  Tue, 27 Dec 2011 10:34:46 -0800
+
 vyatta-keepalived (1.1.15-1-vyatta-22) unstable; urgency=low
 
   * Stop timers before shutting down vrrp instances. This is to avoid a
