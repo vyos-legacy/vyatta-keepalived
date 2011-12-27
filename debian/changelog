@@ -1,3 +1,9 @@
+vyatta-keepalived (1.1.15-1-vyatta-24) unstable; urgency=low
+
+  * A few fixes to vyatta_if handling
+
+ -- John Southworth <john.southworth@vyatta.com>  Tue, 27 Dec 2011 12:00:16 -0800
+
 vyatta-keepalived (1.1.15-1-vyatta-23) unstable; urgency=low
 
   * Apply workaround for vmac interface being too chatty in backup
