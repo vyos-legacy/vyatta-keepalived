@@ -36,6 +36,7 @@
 #include "vrrp_sync.h"
 #include "vrrp_index.h"
 #include "vrrp_vmac.h"
+#include "vrrp_vyatta_if.h"
 #include "memory.h"
 #include "list.h"
 #include "logger.h"
@@ -710,6 +711,9 @@ vrrp_send_link_update(vrrp_rt * vrrp)
 void
 vrrp_state_become_master(vrrp_rt * vrrp)
 {
+        if (vrrp->vmac)
+		vyatta_if_drop_iptables_input_filter(IF_NAME(vrrp->ifp)); 
+
 	/* add the ip addresses */
 	if (!LIST_ISEMPTY(vrrp->vip))
 		vrrp_handle_ipaddress(vrrp, IPADDRESS_ADD, VRRP_VIP_TYPE);
@@ -783,6 +787,14 @@ vrrp_restore_interface(vrrp_rt * vrrp, int advF)
 			vrrp_handle_ipaddress(vrrp, IPADDRESS_DEL,
 					      VRRP_EVIP_TYPE);
 		vrrp->vipset = 0;
+	}
+	if (vrrp->vmac){
+		if (advF) {
+			vyatta_if_drop_iptables_input_filter(IF_NAME(vrrp->ifp));
+		} else {
+			vyatta_if_drop_iptables_input_filter(IF_NAME(vrrp->ifp));
+			vyatta_if_create_iptables_input_filter(IF_NAME(vrrp->ifp));
+		}
 	}
 	
 }
@@ -1072,7 +1084,10 @@ open_vrrp_socket(sa_family_t family, int proto, int idx, int parent_idx)
 
 	/* Join the VRRP MCAST group */
 	if_join_vrrp_group(family, &fd, ifp, proto);
-	if_join_vrrp_group(family, &fd, parent_ifp, proto);
+	/* Only join on parent interface if its different than the current */
+	if (idx != parent_idx)
+		if_join_vrrp_group(family, &fd, parent_ifp, proto);
+
 	if (fd < 0)
 		return -1;
 

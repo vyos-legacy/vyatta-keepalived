@@ -115,6 +115,32 @@ void vyatta_if_drop_iptables_igmp_filter(const char * ifname){
   free(cmdout);
 }
 
+void vyatta_if_create_iptables_input_filter(const char * ifname){
+  char iptables_begin[] = "iptables -t raw -I VYATTA_VRRP_FILTER -i ";
+  char iptables_end[] = " ! -p 112 -j DROP";
+  char * cmdout;
+  cmdout = malloc(strlen(iptables_begin) + strlen(ifname) + 
+                  strlen(iptables_end) + 1);
+  strcpy(cmdout, iptables_begin);
+  strcat(cmdout, ifname);
+  strcat(cmdout, iptables_end);
+  system(cmdout);
+  free(cmdout);
+}
+
+void vyatta_if_drop_iptables_input_filter(const char * ifname){
+  char iptables_begin[] = "iptables -t raw -D VYATTA_VRRP_FILTER -i ";
+  char iptables_end[] = " ! -p 112 -j DROP";
+  char * cmdout;
+  cmdout = malloc(strlen(iptables_begin) + strlen(ifname) + 
+                  strlen(iptables_end) + 1);
+  strcpy(cmdout, iptables_begin);
+  strcat(cmdout, ifname);
+  strcat(cmdout, iptables_end);
+  system(cmdout);
+  free(cmdout);
+}
+
 void vyatta_if_setup(const char * ifname){
   vyatta_if_write_sysctl_values(ifname);
   /* Drop Iptables filter before creating to ensure we don't get duplicates */
