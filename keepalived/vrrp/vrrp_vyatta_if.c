@@ -90,7 +90,7 @@ void vyatta_if_create_iptables_igmp_filter(const char * ifname){
    * join on both parent and vmac, then filter the outbound IGMP on the 
    * vmac interface with iptables.
    */
-  char iptables_begin[] = "iptables -t raw -I VYATTA_VRRP_OUTPUT_FILTER -o ";
+  char iptables_begin[] = "/sbin/iptables -t raw -I VYATTA_VRRP_OUTPUT_FILTER -o ";
   char iptables_end[] = " -p 2 -j DROP";
   char * cmdout;
   cmdout = malloc(strlen(iptables_begin) + strlen(ifname) + 
@@ -103,7 +103,7 @@ void vyatta_if_create_iptables_igmp_filter(const char * ifname){
 }
 
 void vyatta_if_drop_iptables_igmp_filter(const char * ifname){
-  char iptables_begin[] = "iptables -t raw -D VYATTA_VRRP_OUTPUT_FILTER -o ";
+  char iptables_begin[] = "/sbin/iptables -t raw -D VYATTA_VRRP_OUTPUT_FILTER -o ";
   char iptables_end[] = " -p 2 -j DROP";
   char * cmdout;
   cmdout = malloc(strlen(iptables_begin) + strlen(ifname) + 
@@ -116,7 +116,7 @@ void vyatta_if_drop_iptables_igmp_filter(const char * ifname){
 }
 
 void vyatta_if_create_iptables_input_filter(const char * ifname){
-  char iptables_begin[] = "iptables -t raw -I VYATTA_VRRP_FILTER -i ";
+  char iptables_begin[] = "/sbin/iptables -t raw -I VYATTA_VRRP_FILTER -i ";
   char iptables_end[] = " ! -p 112 -j DROP";
   char * cmdout;
   cmdout = malloc(strlen(iptables_begin) + strlen(ifname) + 
@@ -129,7 +129,7 @@ void vyatta_if_create_iptables_input_filter(const char * ifname){
 }
 
 void vyatta_if_drop_iptables_input_filter(const char * ifname){
-  char iptables_begin[] = "iptables -t raw -D VYATTA_VRRP_FILTER -i ";
+  char iptables_begin[] = "/sbin/iptables -t raw -D VYATTA_VRRP_FILTER -i ";
   char iptables_end[] = " ! -p 112 -j DROP";
   char * cmdout;
   cmdout = malloc(strlen(iptables_begin) + strlen(ifname) + 
