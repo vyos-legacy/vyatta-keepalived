@@ -1,3 +1,10 @@
+vyatta-keepalived (1.1.15-1-vyatta-26) unstable; urgency=low
+
+  * Call iptables with full path instead of relying on PATH to be
+    correct
+
+ -- John Southworth <john.southworth@vyatta.com>  Tue, 03 Jan 2012 14:47:23 -0800
+
 vyatta-keepalived (1.1.15-1-vyatta-25) unstable; urgency=low
 
   * Fix problem with previous patch when in non vmac mode
