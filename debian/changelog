@@ -1,3 +1,9 @@
+vyatta-keepalived (1.1.15-1-vyatta-27) unstable; urgency=low
+
+  * Bugfix 6905
+
+ -- John Southworth <john.southworth@vyatta.com>  Wed, 04 Jan 2012 14:43:22 -0800
+
 vyatta-keepalived (1.1.15-1-vyatta-26) unstable; urgency=low
 
   * Call iptables with full path instead of relying on PATH to be
