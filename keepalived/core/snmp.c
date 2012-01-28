@@ -187,6 +187,21 @@ static struct variable8 global_vars[] = {
 	{SNMP_LINKBEAT, ASN_INTEGER, RONLY, snmp_scalar, 1, {5}},
 };
 
+static int
+snmp_setup_session_cb(int majorID, int minorID,
+		      void *serverarg, void *clientarg)
+{
+	netsnmp_session *sess = serverarg;
+	if (serverarg == NULL)
+		return 0;
+	/* Because ping are done synchronously, we do everything to
+	   avoid to block too long. Better disconnect from the master
+	   agent than waiting for him... */
+	sess->timeout = ONE_SEC / 3;
+	sess->retries = 0;
+	return 0;
+}
+
 void
 snmp_agent_init(oid *myoid, int len, char *name, struct variable *variables,
 		int varsize, int varlen)
@@ -209,6 +224,11 @@ snmp_agent_init(oid *myoid, int len, char *name, struct variable *variables,
 	   block keepalived. We check every 2 minutes. */
 	netsnmp_ds_set_int(NETSNMP_DS_APPLICATION_ID,
 			   NETSNMP_DS_AGENT_AGENTX_PING_INTERVAL, 120);
+	/* We also register a callback to modify default timeout and
+	   retries value. */
+	snmp_register_callback(SNMP_CALLBACK_LIBRARY,
+			       SNMP_CALLBACK_SESSION_INIT,
+			       snmp_setup_session_cb, NULL);
 
 	init_agent(name);
 	if (register_mib(name, (struct variable *) variables, varsize,
