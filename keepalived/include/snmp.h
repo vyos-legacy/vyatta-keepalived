@@ -40,6 +40,7 @@ int header_generic(struct variable *, oid *, size_t *, int,
 int header_simple_table(struct variable *, oid *, size_t *, int, size_t *,
                             WriteMethod **, int);
 #endif
+#include <net-snmp/agent/agent_callbacks.h>
 #undef FREE
 
 #include "list.h"
