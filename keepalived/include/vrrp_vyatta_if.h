@@ -20,8 +20,8 @@ extern void vyatta_if_write_ipv6_disable(const char *);
 extern void vyatta_if_write_sysctl_values(const char *);
 extern void vyatta_if_create_iptables_igmp_filter(const char *);
 extern void vyatta_if_drop_iptables_igmp_filter(const char *);
-extern void vyatta_if_create_iptables_input_filter(const char *);
-extern void vyatta_if_drop_iptables_input_filter(const char *);
+extern void vyatta_if_create_iptables_input_filter(const char *, int);
+extern void vyatta_if_drop_iptables_input_filter(const char *, int);
 extern void vyatta_if_setup(const char *);
 
 #endif

@@ -115,9 +115,13 @@ void vyatta_if_drop_iptables_igmp_filter(const char * ifname){
   free(cmdout);
 }
 
-void vyatta_if_create_iptables_input_filter(const char * ifname){
+void vyatta_if_create_iptables_input_filter(const char * ifname, int ah){
   char iptables_begin[] = "/sbin/iptables -t raw -I VYATTA_VRRP_FILTER -i ";
-  char iptables_end[] = " ! -p 112 -j DROP";
+  char iptables_end[18];
+  if (ah)
+    strcpy(iptables_end, " ! -p ah  -j DROP");
+  else
+    strcpy(iptables_end, " ! -p 112 -j DROP");
   char * cmdout;
   cmdout = malloc(strlen(iptables_begin) + strlen(ifname) + 
                   strlen(iptables_end) + 1);
@@ -128,9 +132,13 @@ void vyatta_if_create_iptables_input_filter(const char * ifname){
   free(cmdout);
 }
 
-void vyatta_if_drop_iptables_input_filter(const char * ifname){
+void vyatta_if_drop_iptables_input_filter(const char * ifname, int ah){
   char iptables_begin[] = "/sbin/iptables -t raw -D VYATTA_VRRP_FILTER -i ";
-  char iptables_end[] = " ! -p 112 -j DROP";
+  char iptables_end[18];
+  if (ah)
+    strcpy(iptables_end, " ! -p ah  -j DROP");
+  else
+    strcpy(iptables_end, " ! -p 112 -j DROP");
   char * cmdout;
   cmdout = malloc(strlen(iptables_begin) + strlen(ifname) + 
                   strlen(iptables_end) + 1);

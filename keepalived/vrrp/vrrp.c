@@ -711,8 +711,12 @@ vrrp_send_link_update(vrrp_rt * vrrp)
 void
 vrrp_state_become_master(vrrp_rt * vrrp)
 {
-        if (vrrp->vmac)
-		vyatta_if_drop_iptables_input_filter(IF_NAME(vrrp->ifp)); 
+        if (vrrp->vmac) {
+	        if (vrrp->auth_type == VRRP_AUTH_AH)
+			vyatta_if_drop_iptables_input_filter(IF_NAME(vrrp->ifp), 1); 
+	        else
+			vyatta_if_drop_iptables_input_filter(IF_NAME(vrrp->ifp), 0); 
+	}
 
 	/* add the ip addresses */
 	if (!LIST_ISEMPTY(vrrp->vip))
@@ -790,10 +794,18 @@ vrrp_restore_interface(vrrp_rt * vrrp, int advF)
 	}
 	if (vrrp->vmac){
 		if (advF) {
-			vyatta_if_drop_iptables_input_filter(IF_NAME(vrrp->ifp));
+			if (vrrp->auth_type == VRRP_AUTH_AH)
+				vyatta_if_drop_iptables_input_filter(IF_NAME(vrrp->ifp), 1); 
+			else
+				vyatta_if_drop_iptables_input_filter(IF_NAME(vrrp->ifp), 0); 
 		} else {
-			vyatta_if_drop_iptables_input_filter(IF_NAME(vrrp->ifp));
-			vyatta_if_create_iptables_input_filter(IF_NAME(vrrp->ifp));
+			if (vrrp->auth_type == VRRP_AUTH_AH) {
+				vyatta_if_drop_iptables_input_filter(IF_NAME(vrrp->ifp), 1);
+				vyatta_if_create_iptables_input_filter(IF_NAME(vrrp->ifp), 1);
+			} else {
+				vyatta_if_drop_iptables_input_filter(IF_NAME(vrrp->ifp), 0);
+				vyatta_if_create_iptables_input_filter(IF_NAME(vrrp->ifp), 0);
+			}
 		}
 	}
 	

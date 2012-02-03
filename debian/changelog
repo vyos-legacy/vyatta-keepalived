@@ -1,6 +1,6 @@
 vyatta-keepalived (1.2.2-1-vyatta-1) unstable; urgency=low
 
-  * -i
+  * Fix version number
 
  -- John Southworth <john.southworth@vyatta.com>  Wed, 04 Jan 2012 16:44:11 -0800
 
