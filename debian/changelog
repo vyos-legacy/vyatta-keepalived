@@ -1,3 +1,9 @@
+vyatta-keepalived (1.2.2-1-vyatta-2) unstable; urgency=low
+
+  * Bugfix 7762: Fix not receiving AH vrrp advertisments
+
+ -- John Southworth <john.southworth@vyatta.com>  Thu, 02 Feb 2012 16:40:48 -0800
+
 vyatta-keepalived (1.2.2-1-vyatta-1) unstable; urgency=low
 
   * Fix version number
