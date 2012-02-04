@@ -150,7 +150,7 @@ vrrp_in_chk_ipsecah(vrrp_rt * vrrp, char *buffer)
 	 * sender counter.
 	 */
 	vrrp->ipsecah_counter->seq_number++;
-	if (ntohl(ah->seq_number) >= vrrp->ipsecah_counter->seq_number || vrrp->sync) {
+	if (ntohl(ah->seq_number) >= vrrp->ipsecah_counter->seq_number || vrrp->sync || vrrp->vmac) {
 		vrrp->ipsecah_counter->seq_number = ntohl(ah->seq_number);
 	} else {
 		log_message(LOG_INFO,
@@ -1337,6 +1337,15 @@ clear_diff_vrrp(void)
 
 			/* virtual routes diff */
 			clear_diff_vrrp_vroutes(vrrp);
+			
+			if (vrrp->vmac) {
+	                        if (vrrp->auth_type == VRRP_AUTH_AH) {
+					vyatta_if_drop_iptables_input_filter(IF_NAME(new_vrrp->ifp), 1); 
+				} else {
+					vyatta_if_drop_iptables_input_filter(IF_NAME(new_vrrp->ifp), 0); 
+				}
+			}
+
 
 			/* 
 			 * Remove VMAC if it existed in old vrrp instance,
