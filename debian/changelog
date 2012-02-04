@@ -1,3 +1,9 @@
+vyatta-keepalived (1.2.2-1-vyatta-3) unstable; urgency=low
+
+  * Additional changes needed to support AH auth in VMAC mode
+
+ -- John Southworth <john.southworth@vyatta.com>  Fri, 03 Feb 2012 16:33:22 -0800
+
 vyatta-keepalived (1.2.2-1-vyatta-2) unstable; urgency=low
 
   * Bugfix 7762: Fix not receiving AH vrrp advertisments
