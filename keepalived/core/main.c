@@ -36,6 +36,9 @@ int linkwatch = 0;		/* Use linkwatch kernel netlink reflection */
 char *main_pidfile = KEEPALIVED_PID_FILE;	/* overrule default pidfile */
 char *checkers_pidfile = CHECKERS_PID_FILE;	/* overrule default pidfile */
 char *vrrp_pidfile = VRRP_PID_FILE;	/* overrule default pidfile */
+#ifdef _WITH_SNMP_
+int snmp = 0;			/* Enable SNMP support */
+#endif
 
 /* Log facility table */
 static struct {
@@ -159,9 +162,12 @@ usage(const char *prog)
 		"  %s --version            -v    Display the version number\n"
 		"  %s --pid                -p    pidfile\n"
 		"  %s --checkers_pid       -c    checkers pidfile\n"
-		"  %s --vrrp_pid           -r    vrrp pidfile\n",
-		prog, prog, prog, prog, prog, prog, prog, prog,
-		prog, prog, prog, prog, prog, prog, prog, prog);
+		"  %s --vrrp_pid           -r    vrrp pidfile\n"
+#ifdef _WITH_SNMP_
+		"  %s --snmp               -x    Enable SNMP subsystem\n", prog
+#endif
+		, prog, prog, prog, prog, prog, prog, prog, prog,
+		prog, prog, prog, prog, prog, prog, prog);
 }
 
 /* Command line parser */
@@ -189,6 +195,9 @@ parse_cmdline(int argc, char **argv)
 		{"checkers_pid", 'c', POPT_ARG_STRING, &option_arg, 'c'},
 		{"vrrp_pid", 'r', POPT_ARG_STRING, &option_arg, 'r'},
 		{"vyatta-workaround", 'X', POPT_ARG_NONE, NULL, 'X'},
+#ifdef _WITH_SNMP_
+		{"snmp", 'x', POPT_ARG_NONE, NULL, 'x'},
+#endif
 		{NULL, 0, 0, NULL, 0}
 	};
 
@@ -250,6 +259,11 @@ parse_cmdline(int argc, char **argv)
 	case 'r':
 		vrrp_pidfile = option_arg;
 		break;
+#ifdef _WITH_SNMP_
+	case 'x':
+		snmp = 1;
+		break;
+#endif
 	}
 
 	/* the others */
@@ -298,6 +312,11 @@ parse_cmdline(int argc, char **argv)
 		case 'r':
 			vrrp_pidfile = option_arg;
 			break;
+#ifdef _WITH_SNMP_
+		case 'x':
+			snmp = 1;
+			break;
+#endif
 		}
 	}
 
