@@ -37,6 +37,9 @@
 #include "vrrp_index.h"
 #include "vrrp_vmac.h"
 #include "vrrp_vyatta_if.h"
+#ifdef _WITH_SNMP_
+#include "vrrp_snmp.h"
+#endif
 #include "memory.h"
 #include "list.h"
 #include "logger.h"
@@ -734,7 +737,9 @@ vrrp_state_become_master(vrrp_rt * vrrp)
 
 	/* Check if notify is needed */
 	notify_instance_exec(vrrp, VRRP_STATE_MAST);
-
+#ifdef _WITH_SNMP_
+	vrrp_snmp_instance_trap(vrrp);
+#endif
 #ifdef _HAVE_IPVS_SYNCD_
 	/* Check if sync daemon handling is needed */
 	if (vrrp->lvs_syncd_if)
@@ -829,12 +834,18 @@ vrrp_state_leave_master(vrrp_rt * vrrp)
 		vrrp_restore_interface(vrrp, 0);
 		vrrp->state = vrrp->wantstate;
 		notify_instance_exec(vrrp, VRRP_STATE_BACK);
+#ifdef _WITH_SNMP_
+		vrrp_snmp_instance_trap(vrrp);
+#endif
 		break;
 	case VRRP_STATE_GOTO_FAULT:
 		log_message(LOG_INFO, "VRRP_Instance(%s) Entering FAULT STATE", vrrp->iname);
 		vrrp_restore_interface(vrrp, 0);
 		vrrp->state = VRRP_STATE_FAULT;
 		notify_instance_exec(vrrp, VRRP_STATE_FAULT);
+#ifdef _WITH_SNMP_
+		vrrp_snmp_instance_trap(vrrp);
+#endif
 		break;
 	}
 
