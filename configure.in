@@ -48,6 +48,15 @@ AC_CHECK_HEADERS(openssl/ssl.h openssl/md5.h openssl/err.h,,AC_MSG_ERROR([
   !!! Can not include OpenSSL headers files.            !!!]))
 AC_CHECK_DECL([ETHERTYPE_IPV6],[],[CFLAGS="$CFLAGS -DETHERTYPE_IPV6=0x86dd"],
   [[@%:@include <net/ethernet.h>]])
+   # Do we have a usable <net-snmp/agent/util_funcs.h> header?
+   AC_CHECK_HEADERS([net-snmp/agent/util_funcs.h],,,[
+@%:@include <net-snmp/net-snmp-config.h>
+@%:@include <net-snmp/net-snmp-includes.h>
+@%:@include <net-snmp/library/snmp_transport.h>
+@%:@include <net-snmp/agent/net-snmp-agent-includes.h>
+@%:@include <net-snmp/agent/snmp_vars.h>
+  ] )
+
 
 dnl ----[ Checks for libraries ]----
 AC_CHECK_LIB(crypto, MD5_Init,,AC_MSG_ERROR([OpenSSL libraries are required]))
