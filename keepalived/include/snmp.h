@@ -31,7 +31,15 @@
 #include <net-snmp/net-snmp-includes.h>
 #include <net-snmp/agent/net-snmp-agent-includes.h>
 #include <net-snmp/agent/snmp_vars.h>
+#if HAVE_NET_SNMP_AGENT_UTIL_FUNCS_H
 #include <net-snmp/agent/util_funcs.h>
+#else
+/* The above header may be buggy. We just need these functions. */
+int header_generic(struct variable *, oid *, size_t *, int, 
+                       size_t *, WriteMethod **); 
+int header_simple_table(struct variable *, oid *, size_t *, int, size_t *,
+                            WriteMethod **, int);
+#endif
 #undef FREE
 
 #include "list.h"
