@@ -739,6 +739,7 @@ vrrp_state_become_master(vrrp_rt * vrrp)
 	notify_instance_exec(vrrp, VRRP_STATE_MAST);
 #ifdef _WITH_SNMP_
 	vrrp_snmp_instance_trap(vrrp);
+	vrrp_rfc_snmp_new_master_trap(vrrp);
 #endif
 #ifdef _HAVE_IPVS_SYNCD_
 	/* Check if sync daemon handling is needed */
