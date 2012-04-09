@@ -42,8 +42,8 @@
 typedef struct _sock {
 	sa_family_t family;
 	int proto;
-	int ifindex;
-	int parent_ifindex; /* store parent if index in vmac case */
+	int recv_ifindex; /* ifindex of in_fd */
+	int xmit_ifindex; /* ifindex of out_fd */
 	int fd_in;
 	int fd_out;
 } sock_t;

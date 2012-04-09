@@ -35,6 +35,21 @@ void vyatta_if_write_accept_local(const char * ifname){
    free(outpath);
 }
 
+void vyatta_if_write_link_filter(const char * ifname){
+   char ipv4path[] = "net/ipv4/conf/";
+   char link_filter[] = "/link_filter";
+   int lf_val = 2;
+   char *outpath;
+   outpath = malloc(strlen(PROC_PATH) + strlen(ipv4path) + 
+                    strlen(ifname) + strlen(link_filter) + 1);
+   strcpy(outpath, PROC_PATH);
+   strcat(outpath, ipv4path);
+   strcat(outpath, ifname);
+   strcat(outpath, link_filter);
+   vyatta_if_write_sysctl_value(outpath, lf_val);
+   free(outpath);
+}
+
 void vyatta_if_write_arp_filter(const char * ifname){
    char ipv4path[] = "net/ipv4/conf/";
    char arp_filter[] = "/arp_filter";
@@ -68,6 +83,7 @@ void vyatta_if_write_ipv6_disable(const char * ifname){
 void vyatta_if_write_sysctl_values(const char * ifname){
   vyatta_if_write_accept_local(ifname);
   vyatta_if_write_arp_filter(ifname);
+  vyatta_if_write_link_filter(ifname);
   /* Disable ipv6 for now until we do VRRPv3 support */
   vyatta_if_write_ipv6_disable(ifname);
 }
@@ -151,7 +167,4 @@ void vyatta_if_drop_iptables_input_filter(const char * ifname, int ah){
 
 void vyatta_if_setup(const char * ifname){
   vyatta_if_write_sysctl_values(ifname);
-  /* Drop Iptables filter before creating to ensure we don't get duplicates */
-  vyatta_if_drop_iptables_igmp_filter(ifname);
-  vyatta_if_create_iptables_igmp_filter(ifname);
 }

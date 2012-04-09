@@ -51,14 +51,14 @@ netlink_link_setlladdr(vrrp_rt *vrrp)
 	req.n.nlmsg_flags = NLM_F_REQUEST;
 	req.n.nlmsg_type = RTM_NEWLINK;
 	req.ifi.ifi_family = AF_INET;
-	req.ifi.ifi_index = IF_INDEX(vrrp->ifp);
+	req.ifi.ifi_index = IF_INDEX(vrrp->xmit_ifp);
 
 	addattr_l(&req.n, sizeof(req), IFLA_ADDRESS, ll_addr, ETH_ALEN);
 
 	if (netlink_talk(&nl_cmd, &req.n) < 0)
 		status = -1;
 	else
-		memcpy(vrrp->ifp->hw_addr, ll_addr, ETH_ALEN);
+		memcpy(vrrp->xmit_ifp->hw_addr, ll_addr, ETH_ALEN);
 
 	return status;
 }
@@ -80,7 +80,7 @@ netlink_link_setmode(vrrp_rt *vrrp)
 	req.n.nlmsg_flags = NLM_F_REQUEST;
 	req.n.nlmsg_type = RTM_NEWLINK;
 	req.ifi.ifi_family = AF_INET;
-	req.ifi.ifi_index = IF_INDEX(vrrp->ifp);
+	req.ifi.ifi_index = IF_INDEX(vrrp->xmit_ifp);
 
 	linkinfo = NLMSG_TAIL(&req.n);
 	addattr_l(&req.n, sizeof(req), IFLA_LINKINFO, NULL, 0);
@@ -94,8 +94,11 @@ netlink_link_setmode(vrrp_rt *vrrp)
 	 * In private mode, macvlan will receive frames with same MAC addr
 	 * as configured on the interface.
 	 */
+#ifndef MACVLAN_MODE_VRRP
+#define MACVLAN_MODE_VRRP 16
+#endif
 	addattr32(&req.n, sizeof(req), IFLA_MACVLAN_MODE,
-		  MACVLAN_MODE_PRIVATE);
+		  MACVLAN_MODE_VRRP);
 	data->rta_len = (void *)NLMSG_TAIL(&req.n) - (void *)data;
 
 	linkinfo->rta_len = (void *)NLMSG_TAIL(&req.n) - (void *)linkinfo;
@@ -106,7 +109,7 @@ netlink_link_setmode(vrrp_rt *vrrp)
 	return status;
 }
 
-static int
+int
 netlink_link_up(vrrp_rt *vrrp)
 {
 	int status = 1;
@@ -122,9 +125,35 @@ netlink_link_up(vrrp_rt *vrrp)
 	req.n.nlmsg_flags = NLM_F_REQUEST;
 	req.n.nlmsg_type = RTM_NEWLINK;
 	req.ifi.ifi_family = AF_UNSPEC;
-	req.ifi.ifi_index = IF_INDEX(vrrp->ifp);
+	req.ifi.ifi_index = IF_INDEX(vrrp->xmit_ifp);
 	req.ifi.ifi_change |= IFF_UP;
 	req.ifi.ifi_flags |= IFF_UP;
+
+	if (netlink_talk(&nl_cmd, &req.n) < 0)
+		status = -1;
+
+	return status;
+}
+
+int
+netlink_link_down(vrrp_rt *vrrp)
+{
+	int status = 1;
+	struct {
+		struct nlmsghdr n;
+		struct ifinfomsg ifi;
+		char buf[256];
+	} req;
+
+	memset(&req, 0, sizeof (req));
+	
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof (struct ifinfomsg));
+	req.n.nlmsg_flags = NLM_F_REQUEST;
+	req.n.nlmsg_type = RTM_NEWLINK;
+	req.ifi.ifi_family = AF_UNSPEC;
+	req.ifi.ifi_index = IF_INDEX(vrrp->xmit_ifp);
+	req.ifi.ifi_change |= IFF_UP;
+	req.ifi.ifi_flags &= ~IFF_UP;
 
 	if (netlink_talk(&nl_cmd, &req.n) < 0)
 		status = -1;
@@ -156,9 +185,9 @@ netlink_link_add_vmac(vrrp_rt *vrrp)
 	 * by a previous instance.
 	 */
 	if (reload && (ifp = if_get_by_ifname(ifname))) {
-		vrrp->ifp = ifp;
+		vrrp->xmit_ifp = ifp;
 		/* Save ifindex for use on delete */
-		vrrp->vmac_ifindex = IF_INDEX(vrrp->ifp);
+		vrrp->vmac_ifindex = IF_INDEX(vrrp->xmit_ifp);
 		vrrp->vmac |= 2;
 		return 1;
 	}
@@ -187,8 +216,8 @@ netlink_link_add_vmac(vrrp_rt *vrrp)
 	ifp = if_get_by_ifname(ifname);
 	if (!ifp)
 		return -1;
-	vrrp->ifp = ifp;
-	vrrp->vmac_ifindex = IF_INDEX(vrrp->ifp); /* For use on delete */
+	vrrp->xmit_ifp = ifp;
+	vrrp->vmac_ifindex = IF_INDEX(vrrp->xmit_ifp); /* For use on delete */
 	vrrp->vmac |= 2;
 	netlink_link_setlladdr(vrrp);
 	vyatta_if_setup(ifname);

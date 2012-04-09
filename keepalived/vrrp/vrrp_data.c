@@ -138,7 +138,7 @@ free_sock(void *sock_data)
 	sock_t *sock = sock_data;
 	interface *ifp;
 	if (sock->fd_in > 0) {
-		ifp = if_get_by_ifindex(sock->ifindex);
+		ifp = if_get_by_ifindex(sock->recv_ifindex);
 		if_leave_vrrp_group(sock->family, sock->fd_in, ifp);
 	}
 	if (sock->fd_out > 0)
@@ -150,9 +150,9 @@ static void
 dump_sock(void *sock_data)
 {
 	sock_t *sock = sock_data;
-	log_message(LOG_INFO, "VRRP sockpool: [ifindex(%d), parent_ifindex(%d), proto(%d), fd(%d,%d)]"
-			    , sock->ifindex
-			    , sock->parent_ifindex
+	log_message(LOG_INFO, "VRRP sockpool: [recv_ifindex(%d), xmit_ifindex(%d), proto(%d), fd(%d,%d)]"
+			    , sock->recv_ifindex
+			    , sock->xmit_ifindex
 			    , sock->proto
 			    , sock->fd_in
 			    , sock->fd_out);
@@ -336,13 +336,13 @@ void
 alloc_vrrp_vip(vector strvec)
 {
 	vrrp_rt *vrrp = LIST_TAIL_DATA(vrrp_data->vrrp);
-	if (vrrp->ifp == NULL) {
+	if (vrrp->xmit_ifp == NULL) {
 		log_message(LOG_ERR, "Configuration error: VRRP definition must belong to an interface");
 	}
 
 	if (LIST_ISEMPTY(vrrp->vip))
 		vrrp->vip = alloc_list(free_ipaddress, dump_ipaddress);
-	alloc_ipaddress(vrrp->vip, strvec, vrrp->ifp);
+	alloc_ipaddress(vrrp->vip, strvec, vrrp->xmit_ifp);
 }
 void
 alloc_vrrp_evip(vector strvec)
