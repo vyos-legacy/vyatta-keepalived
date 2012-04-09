@@ -107,8 +107,6 @@ vrrp_vmac_handler(vector strvec)
 	vrrp->vmac = 1;
 	if (!(vrrp->mcast_saddr))
 		vrrp->mcast_saddr  = IF_ADDR(vrrp->ifp);
-	if (!(vrrp->ifindex))
-		vrrp->ifindex = IF_INDEX(vrrp->ifp);
 	if (strvec && (strvec->allocated == 2))
 		strncpy(vrrp->vmac_ifname, VECTOR_SLOT(strvec, 1),
 			IFNAMSIZ - 1);
@@ -151,7 +149,7 @@ vrrp_int_handler(vector strvec)
 	vrrp_rt *vrrp = LIST_TAIL_DATA(vrrp_data->vrrp);
 	char *name = VECTOR_SLOT(strvec, 1);
 	vrrp->ifp = if_get_by_ifname(name);
-	vrrp->ifindex = IF_INDEX(vrrp->ifp); //hold parent if index
+	vrrp->xmit_ifp = vrrp->ifp;
 	if (vrrp->vmac && !(vrrp->vmac & 2))
 		netlink_link_add_vmac(vrrp);
 }

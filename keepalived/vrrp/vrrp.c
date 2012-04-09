@@ -715,10 +715,7 @@ void
 vrrp_state_become_master(vrrp_rt * vrrp)
 {
         if (vrrp->vmac) {
-	        if (vrrp->auth_type == VRRP_AUTH_AH)
-			vyatta_if_drop_iptables_input_filter(IF_NAME(vrrp->ifp), 1); 
-	        else
-			vyatta_if_drop_iptables_input_filter(IF_NAME(vrrp->ifp), 0); 
+		netlink_link_up(vrrp);
 	}
 
 	/* add the ip addresses */
@@ -800,18 +797,9 @@ vrrp_restore_interface(vrrp_rt * vrrp, int advF)
 	}
 	if (vrrp->vmac){
 		if (advF) {
-			if (vrrp->auth_type == VRRP_AUTH_AH)
-				vyatta_if_drop_iptables_input_filter(IF_NAME(vrrp->ifp), 1); 
-			else
-				vyatta_if_drop_iptables_input_filter(IF_NAME(vrrp->ifp), 0); 
+			netlink_link_up(vrrp);
 		} else {
-			if (vrrp->auth_type == VRRP_AUTH_AH) {
-				vyatta_if_drop_iptables_input_filter(IF_NAME(vrrp->ifp), 1);
-				vyatta_if_create_iptables_input_filter(IF_NAME(vrrp->ifp), 1);
-			} else {
-				vyatta_if_drop_iptables_input_filter(IF_NAME(vrrp->ifp), 0);
-				vyatta_if_create_iptables_input_filter(IF_NAME(vrrp->ifp), 0);
-			}
+			netlink_link_down(vrrp);
 		}
 	}
 	
@@ -1098,14 +1086,13 @@ open_vrrp_send_socket(sa_family_t family, int proto, int idx)
 
 /* open a VRRP socket and join the multicast group. */
 int
-open_vrrp_socket(sa_family_t family, int proto, int idx, int parent_idx)
+open_vrrp_socket(sa_family_t family, int proto, int idx)
 {
-	interface *ifp, *parent_ifp;
+	interface *ifp;
 	int fd = -1;
-
+        
 	/* Retreive interface */
 	ifp = if_get_by_ifindex(idx);
-	parent_ifp = if_get_by_ifindex(parent_idx);
 
 	/* open the socket */
 	fd = socket(family, SOCK_RAW, proto);
@@ -1117,9 +1104,6 @@ open_vrrp_socket(sa_family_t family, int proto, int idx, int parent_idx)
 
 	/* Join the VRRP MCAST group */
 	if_join_vrrp_group(family, &fd, ifp, proto);
-	/* Only join on parent interface if its different than the current */
-	if (idx != parent_idx)
-		if_join_vrrp_group(family, &fd, parent_ifp, proto);
 
 	if (fd < 0)
 		return -1;
@@ -1149,8 +1133,8 @@ new_vrrp_socket(vrrp_rt * vrrp)
 	close_vrrp_socket(vrrp);
 	remove_vrrp_fd_bucket(vrrp);
 	proto = (vrrp->auth_type == VRRP_AUTH_AH) ? IPPROTO_IPSEC_AH : IPPROTO_VRRP;
-	vrrp->fd_in = open_vrrp_socket(vrrp->family, proto, IF_INDEX(vrrp->ifp), vrrp->ifindex);
-	vrrp->fd_out = open_vrrp_send_socket(vrrp->family, proto, IF_INDEX(vrrp->ifp));
+	vrrp->fd_in = open_vrrp_socket(vrrp->family, proto, IF_INDEX(vrrp->ifp));
+	vrrp->fd_out = open_vrrp_send_socket(vrrp->family, proto, IF_INDEX(vrrp->xmit_ifp));
 	alloc_vrrp_fd_bucket(vrrp);
 
 	/* Sync the other desc */
@@ -1351,11 +1335,7 @@ clear_diff_vrrp(void)
 			clear_diff_vrrp_vroutes(vrrp);
 			
 			if (vrrp->vmac) {
-	                        if (vrrp->auth_type == VRRP_AUTH_AH) {
-					vyatta_if_drop_iptables_input_filter(IF_NAME(new_vrrp->ifp), 1); 
-				} else {
-					vyatta_if_drop_iptables_input_filter(IF_NAME(new_vrrp->ifp), 0); 
-				}
+				netlink_link_up(vrrp);	
 			}
 
 

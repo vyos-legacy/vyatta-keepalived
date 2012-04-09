@@ -1035,7 +1035,7 @@ vrrp_rfc_snmp_new_master_trap(vrrp_rt *vrrp)
 	oid objid_snmptrap[] = { SNMPTRAP_OID };
 	size_t objid_snmptrap_len = OID_LENGTH(objid_snmptrap);
 	/* OID for trap data vrrpOperMasterIPAddr */
-	oid masterip_oid[] = { VRRP_RFC_OID, 1, 3, 1, 7 };
+	oid masterip_oid[] = { VRRP_RFC_OID, 1, 3, 1, 7, IF_INDEX(vrrp->ifp), vrrp->vrid };
 	size_t masterip_oid_len = OID_LENGTH(masterip_oid);
 
 	netsnmp_variable_list *notification_vars = NULL;

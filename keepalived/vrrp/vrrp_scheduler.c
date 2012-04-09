@@ -418,22 +418,22 @@ already_exist_sock(list l, sa_family_t family, int proto, int ifindex)
 		sock = ELEMENT_DATA(e);
 		if ((sock->family == family) &&
 		    (sock->proto == proto)	 &&
-		    (sock->ifindex == ifindex))
+		    (sock->recv_ifindex == ifindex))
 			return 1;
 	}
 	return 0;
 }
 
 void
-alloc_sock(sa_family_t family, list l, int proto, int ifindex, int p_ifindex)
+alloc_sock(sa_family_t family, list l, int proto, int r_ifindex, int x_ifindex)
 {
 	sock_t *new;
 
 	new = (sock_t *) MALLOC(sizeof (sock_t));
 	new->family = family;
 	new->proto = proto;
-	new->ifindex = ifindex;
-	new->parent_ifindex = p_ifindex;
+	new->recv_ifindex = r_ifindex;
+	new->xmit_ifindex = x_ifindex;
 
 	list_add(l, new);
 }
@@ -444,17 +444,19 @@ vrrp_create_sockpool(list l)
 	vrrp_rt *vrrp;
 	list p = vrrp_data->vrrp;
 	element e;
-	int ifindex, parent_ifindex;
+	int recv_ifindex, xmit_ifindex;
 	int proto;
 
 	for (e = LIST_HEAD(p); e; ELEMENT_NEXT(e)) {
 		vrrp = ELEMENT_DATA(e);
-		ifindex = IF_INDEX(vrrp->ifp);
 		
-		if (vrrp->vmac) 
-		  parent_ifindex = vrrp->ifindex;
-		else 
-		  parent_ifindex = ifindex;
+		if (vrrp->vmac) {
+		  recv_ifindex = IF_INDEX(vrrp->ifp);
+		  xmit_ifindex = vrrp->vmac_ifindex;
+		} else {
+		  recv_ifindex = IF_INDEX(vrrp->ifp);
+		  xmit_ifindex = recv_ifindex;
+		}
 
 		if (vrrp->auth_type == VRRP_AUTH_AH)
 			proto = IPPROTO_IPSEC_AH;
@@ -462,8 +464,8 @@ vrrp_create_sockpool(list l)
 			proto = IPPROTO_VRRP;
 
 		/* add the vrrp element if not exist */
-		if (!already_exist_sock(l, vrrp->family, proto, ifindex))
-			alloc_sock(vrrp->family, l, proto, ifindex, parent_ifindex);
+		if (!already_exist_sock(l, vrrp->family, proto, recv_ifindex))
+			alloc_sock(vrrp->family, l, proto, recv_ifindex, xmit_ifindex);
 	}
 }
 
@@ -476,12 +478,12 @@ vrrp_open_sockpool(list l)
 	for (e = LIST_HEAD(l); e; ELEMENT_NEXT(e)) {
 		sock = ELEMENT_DATA(e);
 		sock->fd_in = open_vrrp_socket(sock->family, sock->proto,
-					   sock->ifindex, sock->parent_ifindex);
+					   sock->recv_ifindex);
 		if (sock->fd_in == -1)
 			sock->fd_out = -1;
 		else
 			sock->fd_out = open_vrrp_send_socket(sock->family, sock->proto,
-								 sock->ifindex);
+								 sock->xmit_ifindex);
 	}
 }
 
@@ -504,7 +506,7 @@ vrrp_set_fds(list l)
 			else
 				proto = IPPROTO_VRRP;
 
-			if ((sock->ifindex == IF_INDEX(vrrp->ifp)) &&
+			if ((sock->recv_ifindex == IF_INDEX(vrrp->ifp)) &&
 			    (sock->proto == proto)) {
 				vrrp->fd_in = sock->fd_in;
 				vrrp->fd_out = sock->fd_out;

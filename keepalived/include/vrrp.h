@@ -89,11 +89,11 @@ typedef struct _vrrp_rt {
 	sa_family_t family;	/* AF_INET|AF_INET6 */
 	char *iname;		/* Instance Name */
 	vrrp_sgroup *sync;	/* Sync group we belong to */
-	interface *ifp;		/* Interface we belong to */
-	unsigned int ifindex;	/* ifindex of (parent)interface (if vmac)*/
+	interface *ifp;		/* Interface on which we receive traffic */
+	interface *xmit_ifp;	/* Interface on which we transmit traffic */
+	unsigned int vmac_ifindex; /* ifindex of the vmac interface used upon deletion */
 	int dont_track_primary; /* If set ignores ifp faults */
 	int vmac;		/* If set try to set VRRP VMAC */
-	unsigned int vmac_ifindex;	/* ifindex of vmac interface */
 	char vmac_ifname[IFNAMSIZ];	/* name of vmac interface */
 	list track_ifp;		/* Interface state we monitor */
 	list track_script;	/* Script state we monitor */
@@ -216,7 +216,7 @@ typedef struct _vrrp_rt {
 /* prototypes */
 extern vrrp_pkt *vrrp_get_header(sa_family_t, char *, int *, uint32_t *);
 extern int open_vrrp_send_socket(sa_family_t, int, int);
-extern int open_vrrp_socket(sa_family_t, int, int, int);
+extern int open_vrrp_socket(sa_family_t, int, int);
 extern int new_vrrp_socket(vrrp_rt *);
 extern void close_vrrp_socket(vrrp_rt *);
 extern void vrrp_send_link_update(vrrp_rt *);
