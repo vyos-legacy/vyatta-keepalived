@@ -17,6 +17,7 @@ Replaces: keepalived
 Depends: ${shlibs:Depends}, 
  ipvsadm, 
  iproute,
+ libsnmp15
  ${misc:Depends}
 Description: Failover and monitoring daemon for LVS clusters
  keepalived is used for monitoring real servers within a Linux
