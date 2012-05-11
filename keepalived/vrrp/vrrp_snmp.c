@@ -923,7 +923,7 @@ static u_char*
 vrrp_rfc_snmp_opertable(struct variable *vp, oid *name, size_t *length,
 			int exact, size_t *var_len, WriteMethod **write_method)
 {
-         return NULL;
+         return 1;
 }
 
 static u_char* 

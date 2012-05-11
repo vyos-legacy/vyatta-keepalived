@@ -84,11 +84,34 @@ typedef struct _vrrp_sgroup {
 	int smtp_alert;
 } vrrp_sgroup;
 
+/* Statistics */
+typedef struct _vrrp_stats {
+	int advert_rcvd;
+	int advert_sent;
+
+	int become_master;
+	int release_master;
+
+	int packet_len_err;
+	int advert_interval_err;
+	int ip_ttl_err;
+	int invalid_type_rcvd;
+	int addr_list_err;
+
+	int invalid_authtype;
+	int authtype_mismatch;
+	int auth_failure;
+
+	int pri_zero_rcvd;
+	int pri_zero_sent;
+} vrrp_stats;
+
 /* parameters per virtual router -- rfc2338.6.1.2 */
 typedef struct _vrrp_rt {
 	sa_family_t family;	/* AF_INET|AF_INET6 */
 	char *iname;		/* Instance Name */
 	vrrp_sgroup *sync;	/* Sync group we belong to */
+	vrrp_stats *stats;      /* Statistics */
 	interface *ifp;		/* Interface on which we receive traffic */
 	interface *xmit_ifp;	/* Interface on which we transmit traffic */
 	unsigned int vmac_ifindex; /* ifindex of the vmac interface used upon deletion */

@@ -144,6 +144,7 @@ vrrp_in_chk_ipsecah(vrrp_rt * vrrp, char *buffer)
 		log_message(LOG_INFO,
 		       "IPSEC AH : invalid IPSEC SPI value. %d and expect %d",
 		       ip->saddr, ah->spi);
+		++vrrp->stats->auth_failure;
 		return 1;
 	}
 
@@ -160,6 +161,7 @@ vrrp_in_chk_ipsecah(vrrp_rt * vrrp, char *buffer)
 		       "VRRP_Instance(%s) IPSEC-AH : sequence number %d"
 		       " already proceeded. Packet dropped. Local(%d)", vrrp->iname
 		       , ntohl(ah->seq_number), vrrp->ipsecah_counter->seq_number);
+		++vrrp->stats->auth_failure;
 		return 1;
 	}
 
@@ -186,6 +188,7 @@ vrrp_in_chk_ipsecah(vrrp_rt * vrrp, char *buffer)
 		log_message(LOG_INFO, "VRRP_Instance(%s) IPSEC-AH : invalid"
 		       " IPSEC HMAC-MD5 value. Due to fields mutation"
 		       " or bad password !", vrrp->iname);
+		++vrrp->stats->auth_failure;
 		return 1;
 	}
 
@@ -251,9 +254,10 @@ vrrp_in_chk(vrrp_rt * vrrp, char *buffer)
 		if (ip->ttl != VRRP_IP_TTL) {
 			log_message(LOG_INFO, "invalid ttl. %d and expect %d", ip->ttl,
 			       VRRP_IP_TTL);
+			++vrrp->stats->ip_ttl_err;
 			return VRRP_PACKET_KO;
 		}
-	
+
 		/*
 		 * MUST verify that the received packet length is greater than or
 		 * equal to the VRRP header
@@ -262,8 +266,20 @@ vrrp_in_chk(vrrp_rt * vrrp, char *buffer)
 			log_message(LOG_INFO,
 			       "ip payload too short. %d and expect at least %d",
 			       ntohs(ip->tot_len) - ihl, sizeof (vrrp_pkt));
+			++vrrp->stats->packet_len_err;
 			return VRRP_PACKET_KO;
 		}
+
+		/* verify packet type */
+		if ((hd->vers_type & 0x0f) != VRRP_PKT_ADVERT) {
+			log_message(LOG_INFO, "Invalid packet type. %d and expect %d",
+		  	    (hd->vers_type & 0x0f), VRRP_PKT_ADVERT);
+			++vrrp->stats->invalid_type_rcvd;
+			return VRRP_PACKET_KO;
+		}
+
+		/* Correct type, version, and length. Count as VRRP advertisement */
+		++vrrp->stats->advert_rcvd;
 
 		if (!LIST_ISEMPTY(vrrp->vip)) {
 			/*
@@ -273,6 +289,7 @@ vrrp_in_chk(vrrp_rt * vrrp, char *buffer)
 			if (hd->naddr != LIST_SIZE(vrrp->vip)) {
 				log_message(LOG_INFO,
 				       "receive an invalid ip number count associated with VRID!");
+				++vrrp->stats->addr_list_err;
 				return VRRP_PACKET_KO;
 			}
 
@@ -285,6 +302,7 @@ vrrp_in_chk(vrrp_rt * vrrp, char *buffer)
 					log_message(LOG_INFO,
 					       "one or more VIP associated with"
 					       " VRID mismatch actual MASTER advert");
+					++vrrp->stats->addr_list_err;
 					return VRRP_PACKET_KO;
 				}
 			}
@@ -296,6 +314,7 @@ vrrp_in_chk(vrrp_rt * vrrp, char *buffer)
 			    - sizeof (vrrp->auth_data);
 			if (memcmp(pw, vrrp->auth_data, sizeof(vrrp->auth_data)) != 0) {
 				log_message(LOG_INFO, "receive an invalid passwd!");
+				++vrrp->stats->auth_failure;
 				return VRRP_PACKET_KO;
 			}
 		}
@@ -323,12 +342,31 @@ vrrp_in_chk(vrrp_rt * vrrp, char *buffer)
 		return VRRP_PACKET_KO;
 	}
 
+	/* verify packet type */
+        if ((hd->vers_type & 0x0f) != VRRP_PKT_ADVERT) {
+		log_message(LOG_INFO, "Invalid packet type. %d and expect %d",
+		    (hd->vers_type & 0x0f), VRRP_PKT_ADVERT);
+		++vrrp->stats->invalid_type_rcvd;
+		return VRRP_PACKET_KO;
+	}
+
+	/* Correct type, version, and length. Count as VRRP advertisement */
+	++vrrp->stats->advert_rcvd;
+
 	/* MUST verify the VRRP checksum */
 	if (in_csum((u_short *) hd, vrrp_pkt_len, 0)) {
 		log_message(LOG_INFO, "Invalid vrrp checksum");
 		return VRRP_PACKET_KO;
 	}
 
+	/* Check that auth type of packet is one of the supported auth types */
+	if (hd->auth_type != VRRP_AUTH_AH &&
+	    hd->auth_type != VRRP_AUTH_PASS &&
+	    hd->auth_type != VRRP_AUTH_NONE) {
+		log_message(LOG_INFO, "Invalid auth type: %d", hd->auth_type);
+		++vrrp->stats->invalid_authtype;
+		return VRRP_PACKET_KO;
+	}
 	/*
 	 * MUST perform authentication specified by Auth Type 
 	 * check the authentication type
@@ -336,6 +374,7 @@ vrrp_in_chk(vrrp_rt * vrrp, char *buffer)
 	if (vrrp->auth_type != hd->auth_type) {
 		log_message(LOG_INFO, "receive a %d auth, expecting %d!",
 		       vrrp->auth_type, hd->auth_type);
+		++vrrp->stats->authtype_mismatch;
 		return VRRP_PACKET_KO;
 	}
 
@@ -349,6 +388,7 @@ vrrp_in_chk(vrrp_rt * vrrp, char *buffer)
 
 	if (LIST_ISEMPTY(vrrp->vip) && hd->naddr > 0) {
 		log_message(LOG_INFO, "receive an invalid ip number count associated with VRID!");
+		++vrrp->stats->addr_list_err;
 		return VRRP_PACKET_KO;
 	}
 
@@ -359,9 +399,12 @@ vrrp_in_chk(vrrp_rt * vrrp, char *buffer)
 	if (vrrp->adver_int / TIMER_HZ != hd->adver_int) {
 		log_message(LOG_INFO, "advertissement interval mismatch mine=%d rcved=%d",
 		       vrrp->adver_int, hd->adver_int);
+		++vrrp->stats->advert_interval_err;
 		/* to prevent concurent VRID running => multiple master in 1 VRID */
 		return VRRP_PACKET_DROP;
 	}
+	if (hd->priority == 0)
+		++vrrp->stats->pri_zero_rcvd;
 
 	return VRRP_PACKET_OK;
 }
@@ -631,6 +674,7 @@ vrrp_send_adv(vrrp_rt * vrrp, int prio)
 	/* build the packet */
 	vrrp_build_pkt(vrrp, prio);
 
+	++vrrp->stats->advert_sent;
 	/* send it */
 	return vrrp_send_pkt(vrrp);
 }
@@ -717,6 +761,7 @@ vrrp_state_become_master(vrrp_rt * vrrp)
         if (vrrp->vmac) {
 		netlink_link_up(vrrp);
 	}
+	++vrrp->stats->become_master;
 
 	/* add the ip addresses */
 	if (!LIST_ISEMPTY(vrrp->vip))
@@ -748,12 +793,14 @@ vrrp_state_become_master(vrrp_rt * vrrp)
 void
 vrrp_state_goto_master(vrrp_rt * vrrp)
 {
+        /* check sync-group status */
+        if (vrrp->sync && !vrrp_sync_goto_master(vrrp))
+	      return;
+
 	/*
 	 * Send an advertisement. To force a new master
 	 * election.
 	 */
-        if (vrrp->sync && !vrrp_sync_goto_master(vrrp))
-	      return;
 	vrrp_send_adv(vrrp, vrrp->effective_priority);
 
 	vrrp->state = VRRP_STATE_MAST;
@@ -770,6 +817,7 @@ vrrp_restore_interface(vrrp_rt * vrrp, int advF)
 	        syslog(LOG_INFO, "VRRP_Instance(%s) sending 0 priority",
 		       vrrp->iname);
 		vrrp_send_adv(vrrp, VRRP_PRIO_STOP);
+		++vrrp->stats->pri_zero_sent;
 	}
 
 	/* remove virtual routes */
@@ -938,6 +986,7 @@ vrrp_state_master_rx(vrrp_rt * vrrp, char *buf, int buflen)
 		vrrp->ms_down_timer = 3 * vrrp->adver_int + VRRP_TIMER_SKEW(vrrp);
 		vrrp->state = VRRP_STATE_FAULT;
 		notify_instance_exec(vrrp, VRRP_STATE_FAULT);
+		++vrrp->stats->release_master;
 		return 1;
 	}
 
@@ -986,6 +1035,7 @@ vrrp_state_master_rx(vrrp_rt * vrrp, char *buf, int buflen)
 			vrrp->ms_down_timer = 3 * vrrp->adver_int + VRRP_TIMER_SKEW(vrrp);
 			vrrp->wantstate = VRRP_STATE_BACK;
 			vrrp->state = VRRP_STATE_BACK;
+			++vrrp->stats->release_master;
 			return 1;
 		}
 	} else if (vrrp->family == AF_INET6) {
@@ -996,6 +1046,7 @@ vrrp_state_master_rx(vrrp_rt * vrrp, char *buf, int buflen)
 			vrrp->ms_down_timer = 3 * vrrp->adver_int + VRRP_TIMER_SKEW(vrrp);
 			vrrp->wantstate = VRRP_STATE_BACK;
 			vrrp->state = VRRP_STATE_BACK;
+			++vrrp->stats->release_master;
 			return 1;
 		}
 	}
