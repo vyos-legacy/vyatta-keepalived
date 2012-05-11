@@ -788,6 +788,7 @@ vrrp_state_become_master(vrrp_rt * vrrp)
 	if (vrrp->lvs_syncd_if)
 		ipvs_syncd_master(vrrp->lvs_syncd_if, vrrp->vrid);
 #endif
+	monotonic_gettimeofday(vrrp->last_transition);
 }
 
 void
@@ -890,6 +891,8 @@ vrrp_state_leave_master(vrrp_rt * vrrp)
 
 	/* Set the down timer */
 	vrrp->ms_down_timer = 3 * vrrp->adver_int + VRRP_TIMER_SKEW(vrrp);
+	++vrrp->stats->release_master;
+	monotonic_gettimeofday(vrrp->last_transition);
 }
 
 /* BACKUP state processing */
@@ -913,6 +916,7 @@ vrrp_state_backup(vrrp_rt * vrrp, char *buf, int buflen)
 	} else if (hd->priority == vrrp->effective_priority && !vrrp->nopreempt) {
 		if (ntohl(saddr) > ntohl(VRRP_PKT_SADDR(vrrp))) {
 			vrrp->ms_down_timer = 3 * vrrp->adver_int + VRRP_TIMER_SKEW(vrrp);
+			vrrp->master_saddr = saddr;
 		} else {
 			log_message(LOG_INFO, "VRRP_Instance(%s) forcing a new MASTER election"
 				    , vrrp->iname);
@@ -922,6 +926,7 @@ vrrp_state_backup(vrrp_rt * vrrp, char *buf, int buflen)
 	} else if (vrrp->nopreempt || hd->priority > vrrp->effective_priority ||
 	           timer_cmp(vrrp->preempt_time, timer_now()) > 0) {
 		vrrp->ms_down_timer = 3 * vrrp->adver_int + VRRP_TIMER_SKEW(vrrp);
+		vrrp->master_saddr = saddr;
 		if (vrrp->preempt_delay) {
 		        if (hd->priority > vrrp->effective_priority) {
 		                vrrp->preempt_time = timer_add_long(timer_now(), 
@@ -986,7 +991,7 @@ vrrp_state_master_rx(vrrp_rt * vrrp, char *buf, int buflen)
 		vrrp->ms_down_timer = 3 * vrrp->adver_int + VRRP_TIMER_SKEW(vrrp);
 		vrrp->state = VRRP_STATE_FAULT;
 		notify_instance_exec(vrrp, VRRP_STATE_FAULT);
-		++vrrp->stats->release_master;
+		monotonic_gettimeofday(vrrp->last_transition);
 		return 1;
 	}
 
@@ -1033,9 +1038,9 @@ vrrp_state_master_rx(vrrp_rt * vrrp, char *buf, int buflen)
 				vrrp->ipsecah_counter->cycle = 0;
 			}
 			vrrp->ms_down_timer = 3 * vrrp->adver_int + VRRP_TIMER_SKEW(vrrp);
+			vrrp->master_saddr = saddr;
 			vrrp->wantstate = VRRP_STATE_BACK;
 			vrrp->state = VRRP_STATE_BACK;
-			++vrrp->stats->release_master;
 			return 1;
 		}
 	} else if (vrrp->family == AF_INET6) {
@@ -1046,7 +1051,6 @@ vrrp_state_master_rx(vrrp_rt * vrrp, char *buf, int buflen)
 			vrrp->ms_down_timer = 3 * vrrp->adver_int + VRRP_TIMER_SKEW(vrrp);
 			vrrp->wantstate = VRRP_STATE_BACK;
 			vrrp->state = VRRP_STATE_BACK;
-			++vrrp->stats->release_master;
 			return 1;
 		}
 	}

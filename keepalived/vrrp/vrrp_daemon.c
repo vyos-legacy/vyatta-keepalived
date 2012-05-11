@@ -261,14 +261,19 @@ print_vrrp(FILE *file, vrrp_rt *vrrp)
 	fprintf(file, " VRRP Instance = %s\n", vrrp->iname);
 	if (vrrp->family == AF_INET6)
 		fprintf(file, "   Using Native IPv6\n");
-	if (vrrp->state == VRRP_STATE_BACK)
+	if (vrrp->state == VRRP_STATE_BACK) {
 		fprintf(file, "   State = BACKUP\n");
+		fprintf(file, "   Master router = %s\n", 
+			inet_ntop2(vrrp->master_saddr));
+	}
 	else if (vrrp->state == VRRP_STATE_FAULT)
 		fprintf(file, "   State = FAULT\n");
 	else if (vrrp->state == VRRP_STATE_MAST)
 		fprintf(file, "   State = MASTER\n");
 	else
 		fprintf(file, "   State = %d\n", vrrp->state);
+	fprintf(file, "   Last transition = %ld\n",
+		vrrp->last_transition->tv_sec);
 	fprintf(file, "   Listening device = %s\n", IF_NAME(vrrp->ifp));
 	fprintf(file, "   Transmitting device = %s\n", IF_NAME(vrrp->xmit_ifp));
 	if (vrrp->dont_track_primary)

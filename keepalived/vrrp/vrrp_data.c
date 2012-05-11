@@ -306,6 +306,9 @@ alloc_vrrp(char *iname)
 	new->family = AF_INET;
 	new->wantstate = VRRP_STATE_BACK;
 	new->init_state = VRRP_STATE_BACK;
+	new->master_saddr = 0;
+	new->last_transition = MALLOC(sizeof (TIMEVAL));
+	monotonic_gettimeofday(new->last_transition);
 	new->adver_int = TIMER_HZ;
 	new->iname = (char *) MALLOC(size + 1);
 	new->stats = alloc_vrrp_stats();

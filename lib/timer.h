@@ -44,6 +44,7 @@ extern TIMEVAL timer_now(void);
 extern TIMEVAL set_time_now(void);
 extern TIMEVAL timer_dup(TIMEVAL b);
 extern int timer_cmp(TIMEVAL a, TIMEVAL b);
+extern int monotonic_gettimeofday(TIMEVAL* a);
 extern TIMEVAL timer_sub(TIMEVAL a, TIMEVAL b);
 extern TIMEVAL timer_add_long(TIMEVAL a, long b);
 extern TIMEVAL timer_sub_now(TIMEVAL a);
