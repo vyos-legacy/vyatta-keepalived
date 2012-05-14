@@ -135,10 +135,12 @@ vrrp_print(FILE *file, void *data)
 		       vrrp->garp_delay/TIMER_HZ);
 	fprintf(file, "   Virtual Router ID = %d\n", vrrp->vrid);
 	fprintf(file, "   Priority = %d\n", vrrp->base_priority);
-	fprintf(file, "   Advert interval = %dsec\n",
+	fprintf(file, "   Advert interval = %d sec\n",
 	       vrrp->adver_int / TIMER_HZ);
 	if (vrrp->nopreempt)
-		fprintf(file, "   Preempt disabled\n");
+		fprintf(file, "   Preempt = disabled\n");
+	else
+		fprintf(file, "   Preempt = enabled\n");
 	if (vrrp->preempt_delay)
 		fprintf(file, "   Preempt delay = %ld secs\n",
 		       vrrp->preempt_delay / TIMER_HZ);
@@ -151,6 +153,9 @@ vrrp_print(FILE *file, void *data)
 		auth_data[sizeof(vrrp->auth_data)] = '\0';
 		fprintf(file, "   Password = %s\n", auth_data);
 	}
+	else
+		fprintf(file, "   Authentication type = none\n");
+
 	if (!LIST_ISEMPTY(vrrp->track_ifp)) {
 		fprintf(file, "   Tracked interfaces = %d\n", 
 			LIST_SIZE(vrrp->track_ifp));
