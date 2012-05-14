@@ -307,6 +307,7 @@ alloc_vrrp(char *iname)
 	new->wantstate = VRRP_STATE_BACK;
 	new->init_state = VRRP_STATE_BACK;
 	new->master_saddr = 0;
+	new->master_priority = 0;
 	new->last_transition = MALLOC(sizeof (TIMEVAL));
 	monotonic_gettimeofday(new->last_transition);
 	new->adver_int = TIMER_HZ;

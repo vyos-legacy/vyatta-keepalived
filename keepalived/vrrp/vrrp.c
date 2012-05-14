@@ -917,6 +917,7 @@ vrrp_state_backup(vrrp_rt * vrrp, char *buf, int buflen)
 		if (ntohl(saddr) > ntohl(VRRP_PKT_SADDR(vrrp))) {
 			vrrp->ms_down_timer = 3 * vrrp->adver_int + VRRP_TIMER_SKEW(vrrp);
 			vrrp->master_saddr = saddr;
+			vrrp->master_priority = hd->priority;
 		} else {
 			log_message(LOG_INFO, "VRRP_Instance(%s) forcing a new MASTER election"
 				    , vrrp->iname);
@@ -927,6 +928,7 @@ vrrp_state_backup(vrrp_rt * vrrp, char *buf, int buflen)
 	           timer_cmp(vrrp->preempt_time, timer_now()) > 0) {
 		vrrp->ms_down_timer = 3 * vrrp->adver_int + VRRP_TIMER_SKEW(vrrp);
 		vrrp->master_saddr = saddr;
+		vrrp->master_priority = hd->priority;
 		if (vrrp->preempt_delay) {
 		        if (hd->priority > vrrp->effective_priority) {
 		                vrrp->preempt_time = timer_add_long(timer_now(), 
@@ -1039,6 +1041,7 @@ vrrp_state_master_rx(vrrp_rt * vrrp, char *buf, int buflen)
 			}
 			vrrp->ms_down_timer = 3 * vrrp->adver_int + VRRP_TIMER_SKEW(vrrp);
 			vrrp->master_saddr = saddr;
+			vrrp->master_priority = hd->priority;
 			vrrp->wantstate = VRRP_STATE_BACK;
 			vrrp->state = VRRP_STATE_BACK;
 			return 1;
