@@ -1,3 +1,12 @@
+vyatta-keepalived (1.2.2-1-vyatta-9) unstable; urgency=low
+
+  * Track master router priority in VRRP
+  * Tweak output for vrrp printing functions slightly
+  * Fix typo and compiler warning
+  * Fix compiler warnings
+
+ -- John Southworth <john.southworth@vyatta.com>  Tue, 15 May 2012 08:50:24 -0700
+
 vyatta-keepalived (1.2.2-1-vyatta-8) unstable; urgency=low
 
   * Copy old VRRP stats on reload
