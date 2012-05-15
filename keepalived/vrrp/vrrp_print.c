@@ -75,7 +75,7 @@ vrrp_print_stats(void)
 		fprintf(file, "  Packet Errors:\n");
 		fprintf(file, "    Length: %d\n", vrrp->stats->packet_len_err);
 		fprintf(file, "    TTL: %d\n", vrrp->stats->ip_ttl_err);
-		fprintf(file, "    Invalide Type: %d\n", 
+		fprintf(file, "    Invalid Type: %d\n", 
 			vrrp->stats->invalid_type_rcvd);
 		fprintf(file, "    Advertisement Interval: %d\n",
 			vrrp->stats->advert_interval_err);
@@ -233,7 +233,6 @@ void
 vscript_print(FILE *file, void *data)
 {
 	vrrp_script *vscript = data;
-	element e;
 	char *str;
 
 	fprintf(file, " VRRP Script = %s\n", vscript->sname);
