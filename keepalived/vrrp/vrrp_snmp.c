@@ -867,7 +867,6 @@ vrrp_snmp_trackedscript(struct variable *vp, oid *name, size_t *length,
 	return NULL;
 }
 
-static oid vrrp_rfc_oid[] = {VRRP_RFC_OID};
 static oid vrrp_oid[] = {VRRP_OID};
 static struct variable8 vrrp_vars[] = {
 	/* vrrpSyncGroupTable */

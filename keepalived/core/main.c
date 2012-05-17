@@ -167,7 +167,7 @@ usage(const char *prog)
 		"  %s --snmp               -x    Enable SNMP subsystem\n", prog
 #endif
 		, prog, prog, prog, prog, prog, prog, prog, prog,
-		prog, prog, prog, prog, prog, prog, prog);
+		prog, prog, prog, prog, prog, prog, prog, prog);
 }
 
 /* Command line parser */

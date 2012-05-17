@@ -890,7 +890,7 @@ vrrp_state_backup(vrrp_rt * vrrp, char *buf, int buflen)
 			        if (!vrrp->preempt_delay_active) {
 			                syslog(
 					       LOG_INFO, 
-					       "%s(%s) start preempt delay(%d)",
+					       "%s(%s) start preempt delay(%ld)",
 					       "VRRP_Instance", 
 					       vrrp->iname, 
 					       vrrp->preempt_delay / TIMER_HZ);
