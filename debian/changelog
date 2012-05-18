@@ -1,3 +1,30 @@
+vyatta-keepalived (1.2.2-1-vyatta-3+oxnard2) unstable; urgency=low
+
+  [ John Southworth ]
+  * Merge core: Initial SNMP support.
+  * Merge vrrp: Initial SNMP support.
+  * core: Infrastructure for SNMP trap support.
+  * vrrp: SNMP trap support.
+  * Fix build with missing util_funcs.h
+  * Add support for SNMP trap: vrrpTrapNewMaster
+  * Cleanup RFC Compliant implementation
+
+  [ Vincent Bernat ]
+  * check: Read-only SNMP support
+  * check: SNMP support for IPVS stats
+  * check: SNMP trap support
+  * snmp: workaround for AgentX ping blocking keepalived
+
+  [ John Southworth ]
+  * Packaging fixes
+  * Remove unneeded interface functions
+  * Fix sync-group thrashing
+  * Don't include VRRP-MIB in oxnard
+  * Fix complier warnings
+  * Adjust TOS value for VRRP packets
+
+ -- John Southworth <john.southworth@vyatta.com>  Fri, 18 May 2012 10:28:18 -0700
+
 vyatta-keepalived (1.2.2-1-vyatta-3+oxnard1) unstable; urgency=low
 
   * new branch
