@@ -374,7 +374,9 @@ vrrp_build_ip(vrrp_rt * vrrp, char *buffer, int buflen)
 
 	ip->ihl = 5;
 	ip->version = 4;
-	ip->tos = 0;
+	/* network control, low delay
+	 * maps to band 0 in pfifo_fast */
+	ip->tos = 0xf0;
 	ip->tot_len = ip->ihl * 4 + vrrp_hd_len(vrrp);
 	ip->tot_len = htons(ip->tot_len);
 	ip->id = htons(++vrrp->ip_id);
