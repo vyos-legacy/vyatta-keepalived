@@ -1,3 +1,9 @@
+vyatta-keepalived (1.2.2-1-vyatta-10) unstable; urgency=low
+
+  * Adjust TOS values.
+
+ -- John Southworth <john.southworth@vyatta.com>  Mon, 21 May 2012 13:56:39 -0700
+
 vyatta-keepalived (1.2.2-1-vyatta-9) unstable; urgency=low
 
   * Track master router priority in VRRP
