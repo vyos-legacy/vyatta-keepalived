@@ -374,9 +374,8 @@ vrrp_build_ip(vrrp_rt * vrrp, char *buffer, int buflen)
 
 	ip->ihl = 5;
 	ip->version = 4;
-	/* network control, low delay
-	 * maps to band 0 in pfifo_fast */
-	ip->tos = 0xf0;
+	/* set tos to internet network control */
+	ip->tos = 0xc0;
 	ip->tot_len = ip->ihl * 4 + vrrp_hd_len(vrrp);
 	ip->tot_len = htons(ip->tot_len);
 	ip->id = htons(++vrrp->ip_id);
@@ -1069,6 +1068,7 @@ open_vrrp_send_socket(sa_family_t family, int proto, int idx)
 		if_setsockopt_hdrincl(&fd);
 		if_setsockopt_bindtodevice(&fd, ifp);
 		if_setsockopt_mcast_loop(family, &fd);
+		if_setsockopt_priority(&fd);
 		if (fd < 0)
 			return -1;
 	} else if (family == AF_INET6) {
@@ -1076,6 +1076,7 @@ open_vrrp_send_socket(sa_family_t family, int proto, int idx)
 		if_setsockopt_mcast_hops(family, &fd);
 		if_setsockopt_mcast_if(family, &fd, ifp);
 		if_setsockopt_mcast_loop(family, &fd);
+		if_setsockopt_priority(&fd);
 		if (fd < 0)
 			return -1;
 	} else {
