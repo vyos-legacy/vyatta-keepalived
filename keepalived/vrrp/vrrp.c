@@ -1068,7 +1068,6 @@ open_vrrp_send_socket(sa_family_t family, int proto, int idx)
 		if_setsockopt_hdrincl(&fd);
 		if_setsockopt_bindtodevice(&fd, ifp);
 		if_setsockopt_mcast_loop(family, &fd);
-		if_setsockopt_priority(&fd);
 		if (fd < 0)
 			return -1;
 	} else if (family == AF_INET6) {
@@ -1076,7 +1075,6 @@ open_vrrp_send_socket(sa_family_t family, int proto, int idx)
 		if_setsockopt_mcast_hops(family, &fd);
 		if_setsockopt_mcast_if(family, &fd, ifp);
 		if_setsockopt_mcast_loop(family, &fd);
-		if_setsockopt_priority(&fd);
 		if (fd < 0)
 			return -1;
 	} else {
