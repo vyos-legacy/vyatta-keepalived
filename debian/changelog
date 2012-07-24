@@ -1,3 +1,9 @@
+vyatta-keepalived (1.2.2-1-vyatta-3+oxnard5) unstable; urgency=low
+
+  * Bugfix 8238: Change when socket fd's are freed.
+
+ -- John Southworth <john.southworth@vyatta.com>  Tue, 24 Jul 2012 16:40:52 -0700
+
 vyatta-keepalived (1.2.2-1-vyatta-3+oxnard4) unstable; urgency=low
 
   * Don't set socket priority until we've decided what to do about other
