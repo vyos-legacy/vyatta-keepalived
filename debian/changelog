@@ -1,3 +1,9 @@
+vyatta-keepalived (1.2.2-1-vyatta-12) unstable; urgency=low
+
+  * Bugfix 8238: Change when socket fd's are freed.
+
+ -- John Southworth <john.southworth@vyatta.com>  Tue, 24 Jul 2012 16:39:48 -0700
+
 vyatta-keepalived (1.2.2-1-vyatta-11) unstable; urgency=low
 
   * Bugfix 8238: Change when socket fd's are freed.
