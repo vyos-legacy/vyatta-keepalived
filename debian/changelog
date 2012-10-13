@@ -1,3 +1,9 @@
+vyatta-keepalived (1.2.2-1-vyatta-12+pacifica2) unstable; urgency=low
+
+  * new branch
+
+ -- John Southworth <john.southworth@vyatta.com>  Fri, 12 Oct 2012 18:48:27 -0700
+
 vyatta-keepalived (1.2.2-1-vyatta-12+pacifica1) unstable; urgency=low
 
   * new branch
