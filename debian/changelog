@@ -1,3 +1,9 @@
+vyatta-keepalived (1.2.2-1-vyatta-13+daisy2) unstable; urgency=low
+
+  * Rebuild against new net-snmp
+
+ -- James Davidson <james.davidson@vyatta.com>  Tue, 12 Feb 2013 14:13:40 -0800
+
 vyatta-keepalived (1.2.2-1-vyatta-13+daisy1) unstable; urgency=low
 
   * create daisy branch
