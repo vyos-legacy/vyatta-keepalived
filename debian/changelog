@@ -1,3 +1,9 @@
+vyatta-keepalived (1.2.2-1-vyatta-14) unstable; urgency=low
+
+  * Force rebuild for new net-snmp
+
+ -- James Davidson <james.davidson@vyatta.com>  Thu, 28 Mar 2013 13:16:35 -0700
+
 vyatta-keepalived (1.2.2-1-vyatta-13) unstable; urgency=low
 
   * new branch
