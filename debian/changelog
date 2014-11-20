@@ -1,3 +1,15 @@
+vyatta-keepalived (1.2.2-1+vyos2+lithium2) unstable; urgency=low
+
+  * New branch
+
+ -- Daniil Baturin <dmbaturin@squeeze32devel.multi.eu>  Thu, 20 Nov 2014 23:49:50 +0100
+
+vyatta-keepalived (1.2.2-1+vyos2+lithium1) unstable; urgency=low
+
+  * New branch
+
+ -- Daniil Baturin <daniil@baturin.org>  Sat, 15 Feb 2014 19:22:01 +0100
+
 vyatta-keepalived (1.2.2-1+vyos1+helium1) unstable; urgency=low
 
   * New branch
