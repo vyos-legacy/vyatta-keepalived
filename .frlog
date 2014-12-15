@@ -6,3 +6,4 @@ Tue Feb 12 14:13:39 PST 2013: [Rebuild against new net-snmp] at [debian/1.2.2-1-
 Sun Nov 17 00:29:25 CET 2013: [New branch] at [debian/1.2.2-1-vyatta-13+daisy2]
 Sat Feb 15 19:22:00 CET 2014: [New branch] at [debian/1.2.2-1-vyatta-13+hydrogen1]
 Thu Nov 20 23:49:47 CET 2014: [New branch] at [debian/1.2.2-1+vyos1+helium1]
+Mon Dec 15 19:24:34 GMT 2014: [Force release] at [debian/1.2.2-1+vyos2+lithium2]
