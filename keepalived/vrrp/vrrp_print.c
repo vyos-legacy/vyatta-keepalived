@@ -127,6 +127,8 @@ vrrp_print(FILE *file, void *data)
 	if (vrrp->mcast_saddr)
 		fprintf(file, "   Using mcast src_ip = %s\n",
 		       inet_ntop2(vrrp->mcast_saddr));
+	else
+		fprintf(file, "   Using mcast src_ip = none\n");
 	if (vrrp->lvs_syncd_if)
 		fprintf(file, "   Runing LVS sync daemon on interface = %s\n",
 		       vrrp->lvs_syncd_if);
