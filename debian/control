@@ -7,7 +7,8 @@ Build-Depends: debhelper (>= 5),
  libpopt-dev, 
  cdbs, 
  autoconf,
- linux-libc-dev
+ linux-libc-dev,
+ libsnmp-dev
 Standards-Version: 3.9.1
 
 Package: vyatta-keepalived
@@ -17,7 +18,7 @@ Replaces: keepalived
 Depends: ${shlibs:Depends}, 
  ipvsadm, 
  iproute,
- libsnmp15
+ libsnmp30
  ${misc:Depends}
 Description: Failover and monitoring daemon for LVS clusters
  keepalived is used for monitoring real servers within a Linux
